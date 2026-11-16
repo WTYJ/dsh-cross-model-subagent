@@ -1,0 +1,45 @@
+{
+  "name": "@wtyj/dsh-cross-model-subagent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "repository": { "type": "git", "url": "git+https://github.com/WTYJ/dsh-cross-model-subagent.git" },
+  "homepage": "https://github.com/WTYJ/dsh-cross-model-subagent",
+  "license": "MIT",
+  "description": "Choose the model native subagents run on: set it per session or as a global default, so the main agent and its subagents can use different models. The settings page also checks for and installs newer releases.",
+  "exports": {
+    ".": "./index.js",
+    "./updates": "./updating-entry.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "installed.js",
+    "routing.js",
+    "updating.js",
+    "updating-host.js",
+    "updating-entry.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "docs",
+    "LICENSE",
+    "icon.svg",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-api-remotes"
+      ]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check
+        run: |
+          node --check client.js
+          node --check index.js
+          node --check routing.js
+          node --check updating.js
+          node --check updating-host.js
+          node --check updating-entry.js
+      - name: Pure tests (no DSH installation required)
+        run: node --test tests/updating.test.mjs tests/host-update.test.mjs client-data.test.mjs

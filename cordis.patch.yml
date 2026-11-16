@@ -1,0 +1,5 @@
+- insert:
+    - id: cross-model-subagent
+      name: '@wtyj/dsh-cross-model-subagent'
+    - id: cross-model-subagent-updates
+      name: '@wtyj/dsh-cross-model-subagent/updates'

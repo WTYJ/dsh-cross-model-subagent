@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Model delegation",
+    "description": "Choose the model native subagents run on: set it per session or as a global default, so the main agent and its subagents can use different models. The settings page also checks for and installs newer releases.",
+    "detail": "docs/DETAIL.md"
+  }
+}

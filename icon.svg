@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Cross-model subagents">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#g)"/>
+  <!-- parent node -->
+  <circle cx="20" cy="22" r="6" fill="#ffffff"/>
+  <!-- child node (different model) -->
+  <circle cx="44" cy="42" r="6" fill="#ffffff" opacity="0.92"/>
+  <!-- link -->
+  <path d="M25 26 L39 38" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+  <!-- swap arrows hint -->
+  <path d="M34 20 h10 v6" fill="none" stroke="#dbeafe" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M30 44 h-10 v-6" fill="none" stroke="#dbeafe" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
