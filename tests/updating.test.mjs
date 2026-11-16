@@ -13,6 +13,8 @@ const SHA = 'a'.repeat(40)
 const OTHER_SHA = 'b'.repeat(40)
 const MANIFEST_URL = 'https://raw.githubusercontent.com/WTYJ/dsh-cross-model-subagent/main/package.json'
 const COMMIT_URL = 'https://api.github.com/repos/WTYJ/dsh-cross-model-subagent/commits/main'
+// The manifest is read from the commit's own tree first, so a filtered network never blocks it.
+const CONTENTS_URL = `https://api.github.com/repos/WTYJ/dsh-cross-model-subagent/contents/package.json?ref=${SHA}`
 
 // Small response helper matching the subset of the fetch Response API used.
 function response({ ok = true, status = 200, body = '', headers = {} } = {}) {
@@ -25,13 +27,35 @@ function response({ ok = true, status = 200, body = '', headers = {} } = {}) {
   }
 }
 
+/** Wrap a manifest response body as the contents API returns it (base64 in `content`). */
+function asContents(fileResponse) {
+  return response({
+    body: {
+      type: 'file',
+      content: Buffer.from(JSON.stringify(fileResponse.body)).toString('base64'),
+    },
+  })
+}
+
 // Build a fetchImpl that answers the commit and manifest endpoints separately.
-function fakeFetch({ commit, manifest, onRequest } = {}) {
+// The raw CDN is answered only when `manifest` is given, so a caller can exercise
+// the contents-API fallback by leaving it out.
+function fakeFetch({ commit, manifest, contents, onRequest } = {}) {
   return async (url, init) => {
     onRequest?.({ url, init })
     if (url === COMMIT_URL) {
       if (commit instanceof Error) throw commit
       return typeof commit === 'function' ? commit() : commit
+    }
+    if (url === CONTENTS_URL) {
+      if (contents instanceof Error) throw contents
+      if (contents !== undefined) return typeof contents === 'function' ? contents() : contents
+      // Default: serve the same manifest body the raw CDN would, as the contents API does.
+      if (manifest !== undefined && !(manifest instanceof Error)) {
+        const fileResponse = typeof manifest === 'function' ? manifest() : manifest
+        return fileResponse.ok ? asContents({ ...fileResponse, body: JSON.parse(await fileResponse.text()) }) : fileResponse
+      }
+      return response({ ok: false, status: 404 })
     }
     if (url === MANIFEST_URL) {
       if (manifest instanceof Error) throw manifest
@@ -200,11 +224,44 @@ test('manifest without dsh.bundle is rejected', async () => {
     installedSource: { kind: 'git', spec: REPOSITORY.git },
     fetchImpl: fakeFetch({
       commit: commitBody(),
+      // Both locations carry the same manifest, so both reject it for the same reason.
       manifest: response({ body: { version: '2.1.0' } }),
     }),
   })
   assert.equal(result.status, 'error')
-  assert.equal(result.fetchAttempts[1].problem, 'missing-bundle')
+  const manifests = result.fetchAttempts.slice(1)
+  assert.equal(manifests.length, 2, 'the contents API and the raw CDN are both consulted')
+  assert.deepEqual(manifests.map(attempt => attempt.problem), ['no-manifest', 'missing-version'])
+})
+
+test('the manifest is read from the checked commit before the raw CDN', async () => {
+  const result = await checkForUpdate({
+    currentVersion: '2.0.0',
+    installedSource: { kind: 'git', spec: REPOSITORY.git },
+    fetchImpl: fakeFetch({
+      commit: commitBody(),
+      manifest: manifestBody('2.1.0'),
+    }),
+  })
+  assert.equal(result.status, 'ready')
+  assert.equal(result.latestVersion, '2.1.0')
+  assert.equal(result.fetchAttempts[1].url, CONTENTS_URL)
+})
+
+test('a commit-tree manifest answers even when the raw CDN is unreachable', async () => {
+  const result = await checkForUpdate({
+    currentVersion: '2.0.0',
+    installedSource: { kind: 'git', spec: REPOSITORY.git },
+    fetchImpl: fakeFetch({
+      commit: commitBody(),
+      contents: asContents({ body: { version: '2.1.0', dsh: { bundle: { patch: './cordis.patch.yml' } } } }),
+      // This network resolves the raw host to a local proxy that refuses connections.
+      manifest: new Error('connect ECONNREFUSED'),
+    }),
+  })
+  assert.equal(result.status, 'ready')
+  assert.equal(result.latestVersion, '2.1.0')
+  assert.equal(result.fetchAttempts.length, 2, 'the CDN is never consulted once the commit answered')
 })
 
 test('link install is never self-updatable and explains migration', async () => {

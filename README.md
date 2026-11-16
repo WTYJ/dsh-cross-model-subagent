@@ -29,12 +29,14 @@ dsh plugin add https://github.com/WTYJ/dsh-cross-model-subagent.git
 
 ## 检查更新与升级
 
-设置页底部的「版本与更新」会读取公开仓库的最新提交与 `package.json` 版本，并与本地版本比较：
+设置页底部的「版本与更新」会读取公开仓库的最新提交与该提交里的 `package.json` 版本，并与本地版本比较：
 
 - **有新版本**：显示「安装 vX」。安装走 DSH 插件管理器 `updateBundle`，目标被固定到校验过的那一次提交（`<仓库>#<40 位 commit>`）；失败会回滚到原版本，需要重启时会明确提示。
 - **已是最新 / 本地更新**：只显示状态，不提供安装。
 - **本地链接安装**（`link:` 或路径安装）：无法原地升级，页面给出一次性的迁移命令；迁移为 Git 安装后即可使用页内一键更新。
 - **检查失败**（无网络、API 限流、仓库为空）：显示可读原因，可以重试。
+
+版本号从被检查的那次提交里读取（GitHub contents API），而不是先取提交再取 CDN 文件：两者可能不同步，且部分网络能访问 API、却无法解析 `raw.githubusercontent.com`。CDN 仅作为回退。
 
 页面通过插件自己的 Host 路由 `POST /model-delegation/update` 调用同一套逻辑：该路由只接受 `check` 与 `apply` 两个动作、限制请求体大小、拒绝跨源请求，并且不携带任何凭据。安装动作同样可以通过工具 `cross_model_subagent_update` 由模型触发。
 

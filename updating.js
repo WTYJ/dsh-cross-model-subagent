@@ -204,16 +204,6 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
     return result
   }
 
-  function blockerReason(code) {
-    switch (code) {
-      case 'link-install': return 'This copy is installed from a local link or path, so it cannot be upgraded in place; a one-time migration to a Git install is required.'
-      case 'unmanaged-source': return 'The installation source is not a managed Git copy of this repository, so self-update is unavailable.'
-      case 'foreign-origin': return 'The installed copy does not originate from the expected repository, so it cannot self-update.'
-      case 'no-commit': return 'The installed copy cannot be pinned because the latest commit sha is unavailable.'
-      default: return 'Self-update is unavailable.'
-    }
-  }
-
   let commitSha = null
 
   // 1. Latest commit on the default branch.
@@ -271,51 +261,100 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
     return fail('network', 'Network error while contacting the GitHub API.')
   }
 
-  // 2. Published version from the raw package manifest.
-  const manifestUrl = `https://raw.githubusercontent.com/${REPOSITORY.owner}/${REPOSITORY.repo}/${REPOSITORY.branch}/package.json`
-  const manifestAttempt = { url: manifestUrl }
-  fetchAttempts.push(manifestAttempt)
+  // 2. Published version. The commit itself carries the tree, so read the manifest from the
+  // GitHub API rather than the raw CDN: a network that resolves the API may still fail on
+  // raw.githubusercontent.com (proxy DNS, filtered mirrors), and the version must match the
+  // exact commit being reported instead of a CDN copy that can lag behind it.
   let latestVersion = null
-  try {
-    const res = await fetchImpl(manifestUrl, { headers: { 'User-Agent': 'dsh-cross-model-subagent' }, signal: composite })
-    manifestAttempt.status = res?.status ?? null
-    if (!res || !res.ok) {
-      manifestAttempt.problem = `HTTP ${res?.status ?? 'unknown'}`
-      return fail('manifest-request-failed', `Manifest request failed with HTTP ${res?.status ?? 'unknown'}.`)
-    }
-    const body = await readCapped(res)
-    if (body === null) {
-      manifestAttempt.problem = 'body-too-large'
-      return fail('body-too-large', 'Manifest response exceeded the 1 MiB limit.')
-    }
-    let json
+  for (const source of manifestSources(commitSha)) {
+    const attempt = { url: source.url }
+    fetchAttempts.push(attempt)
     try {
-      json = JSON.parse(body)
-    } catch {
-      manifestAttempt.problem = 'invalid-json'
-      return fail('invalid-json', 'Manifest response was not valid JSON.')
+      const res = await fetchImpl(source.url, { headers: { Accept: source.accept, 'User-Agent': 'dsh-cross-model-subagent' }, signal: composite })
+      attempt.status = res?.status ?? null
+      if (!res || !res.ok) {
+        attempt.problem = `HTTP ${res?.status ?? 'unknown'}`
+        continue
+      }
+      const body = await readCapped(res)
+      if (body === null) {
+        attempt.problem = 'body-too-large'
+        continue
+      }
+      let json
+      try {
+        json = JSON.parse(body)
+      } catch {
+        attempt.problem = 'invalid-json'
+        continue
+      }
+      const manifest = source.decode(json)
+      if (manifest === null) {
+        attempt.problem = source.missing
+        continue
+      }
+      latestVersion = manifest
+      break
+    } catch (error) {
+      attempt.problem = error?.name === 'TimeoutError' || error?.name === 'AbortError' ? 'timeout' : 'network'
     }
-    if (!json || typeof json.version !== 'string' || !json.version.trim()) {
-      manifestAttempt.problem = 'missing-version'
-      return fail('missing-version', 'Manifest is missing a version field.')
-    }
-    if (!json.dsh || !json.dsh.bundle) {
-      manifestAttempt.problem = 'missing-bundle'
-      return fail('missing-bundle', 'Manifest is missing the dsh.bundle marker.')
-    }
-    latestVersion = json.version.trim()
-  } catch (error) {
-    if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
-      manifestAttempt.problem = 'timeout'
-      return fail('timeout', 'Request timed out or was aborted.')
-    }
-    manifestAttempt.problem = 'network'
-    return fail('network', 'Network error while fetching the published manifest.')
   }
-
+  if (latestVersion === null) {
+    const reasons = fetchAttempts.slice(1).map(attempt => `${attempt.url}: ${attempt.problem ?? 'unknown'}`)
+    return fail('manifest-unavailable', `Could not read the published manifest. ${reasons.join('; ')}`)
+  }
   result.latestVersion = latestVersion
+  return finish(currentVersion, latestVersion, commitSha, installed, result, fetchAttempts)
+}
 
-  // 3. Version comparison (only when both sides are valid semver).
+/** Readable explanation for each reason a copy cannot install its own update. */
+function blockerReason(code) {
+  switch (code) {
+    case 'link-install': return 'This copy is installed from a local link or path, so it cannot be upgraded in place; a one-time migration to a Git install is required.'
+    case 'unmanaged-source': return 'The installation source is not a managed Git copy of this repository, so self-update is unavailable.'
+    case 'foreign-origin': return 'The installed copy does not originate from the expected repository, so it cannot self-update.'
+    case 'no-commit': return 'The installed copy cannot be pinned because the latest commit sha is unavailable.'
+    default: return 'Self-update is unavailable.'
+  }
+}
+
+/** Manifest locations tried in order, each with its own decoding. */
+function manifestSources(commitSha) {
+  const path = 'package.json'
+  const sources = []
+  if (typeof commitSha === 'string') {
+    sources.push({
+      url: `https://api.github.com/repos/${REPOSITORY.owner}/${REPOSITORY.repo}/contents/${path}?ref=${commitSha}`,
+      accept: 'application/vnd.github+json',
+      missing: 'no-manifest',
+      // The contents API returns base64 for a file under 1 MB.
+      decode: json => {
+        if (!json || json.type !== 'file' || typeof json.content !== 'string') return null
+        try {
+          return readManifestVersion(Buffer.from(json.content, 'base64').toString('utf8'))
+        } catch { return null }
+      },
+    })
+  }
+  sources.push({
+    url: `https://raw.githubusercontent.com/${REPOSITORY.owner}/${REPOSITORY.repo}/${REPOSITORY.branch}/${path}`,
+    accept: '*/*',
+    missing: 'missing-version',
+    decode: json => readManifestVersion(JSON.stringify(json)),
+  })
+  return sources
+}
+
+/** Read `version` from a manifest text, requiring the bundle marker and a real version. */
+function readManifestVersion(text) {
+  const json = JSON.parse(text)
+  if (!json || typeof json.version !== 'string' || !json.version.trim()) return null
+  if (!json.dsh || !json.dsh.bundle) return null
+  return json.version.trim()
+}
+
+/** Compare the two versions and decide whether this copy may self-update. */
+function finish(currentVersion, latestVersion, commitSha, installed, result, fetchAttempts) {
   const cmp = compareVersions(currentVersion, latestVersion)
   if (cmp === null) {
     result.status = 'unknown-version'
@@ -323,7 +362,6 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
     return result
   }
 
-  // 4. Determine whether the running copy can self-update.
   const blocker = selfUpdateBlocker(installed, commitSha)
   if (blocker === null) {
     result.canSelfUpdate = true
@@ -333,13 +371,10 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
     result.reason = blockerReason(blocker)
   }
 
-  // cmp compares current vs latest: negative means latest is newer.
   if (cmp < 0) result.status = 'ready'
   else if (cmp === 0) result.status = 'up-to-date'
   else result.status = 'ahead'
-
-  // A pending release that this copy cannot install keeps canSelfUpdate false,
-  // but a version problem must not hide which version is published.
   if (cmp >= 0) result.spec = null
   return result
 }
+

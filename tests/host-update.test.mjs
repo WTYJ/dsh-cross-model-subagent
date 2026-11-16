@@ -22,6 +22,8 @@ const SHA = 'a'.repeat(40)
 const OTHER_SHA = 'b'.repeat(40)
 const MANIFEST_URL = 'https://raw.githubusercontent.com/WTYJ/dsh-cross-model-subagent/main/package.json'
 const COMMIT_URL = 'https://api.github.com/repos/WTYJ/dsh-cross-model-subagent/commits/main'
+// The manifest is read from the checked commit first; the raw CDN is the fallback.
+const CONTENTS_URL = `https://api.github.com/repos/WTYJ/dsh-cross-model-subagent/contents/package.json?ref=${SHA}`
 const GOOD_SPEC = `https://github.com/WTYJ/dsh-cross-model-subagent.git#${SHA}`
 
 // ---- helpers (no network) --------------------------------------------------
@@ -36,11 +38,23 @@ function response({ ok = true, status = 200, body = '', headers = {} } = {}) {
   }
 }
 
-function fakeFetch({ commit, manifest } = {}) {
+function fakeFetch({ commit, manifest, contents } = {}) {
   return async url => {
     if (url === COMMIT_URL) {
       if (commit instanceof Error) throw commit
       return typeof commit === 'function' ? commit() : commit
+    }
+    if (url === CONTENTS_URL) {
+      if (contents instanceof Error) throw contents
+      if (contents !== undefined) return typeof contents === 'function' ? contents() : contents
+      if (manifest !== undefined && !(manifest instanceof Error)) {
+        const fileResponse = typeof manifest === 'function' ? manifest() : manifest
+        // Serve whatever the caller's manifest says, base64-encoded like the contents API.
+        return fileResponse.ok
+          ? response({ body: { type: 'file', content: Buffer.from(await fileResponse.text()).toString('base64') } })
+          : fileResponse
+      }
+      return response({ ok: false, status: 404 })
     }
     if (url === MANIFEST_URL) {
       if (manifest instanceof Error) throw manifest
@@ -196,7 +210,9 @@ test('checkForUpdate error paths are structured, never thrown', async () => {
     installedSource: { kind: 'git', spec: REPOSITORY.git },
     fetchImpl: fakeFetch({ commit: commitBody(), manifest: response({ body: { version: '2.1.0' } }) }),
   })
-  assert.equal(noBundle.fetchAttempts[1].problem, 'missing-bundle')
+  // Both manifest locations carry the same bundle-less file, so both reject it.
+  assert.equal(noBundle.status, 'error')
+  assert.deepEqual(noBundle.fetchAttempts.slice(1).map(attempt => attempt.problem), ['no-manifest', 'missing-version'])
 })
 
 test('checkForUpdate aborts cleanly under an already-aborted external signal', async () => {
