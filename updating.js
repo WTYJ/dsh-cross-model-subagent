@@ -11,6 +11,9 @@ export const REPOSITORY = {
 
 const HOST = 'github.com'
 const MAX_BODY = 1024 * 1024
+/** How long a successful check is reused: GitHub allows 60 anonymous requests per hour
+ * per IP, and one check costs two, so a page reopened a few times must not exhaust it. */
+export const CACHE_TTL_MS = 10 * 60 * 1000
 
 /** Split a semver string into numbers and prerelease identifiers, or null. */
 function parseSemver(value) {
@@ -167,10 +170,43 @@ async function readCapped(response) {
   return text
 }
 
+/** Seconds GitHub asks the caller to wait, from `retry-after` or the remaining quota window. */
+function retryAfterSeconds(response) {
+  const retry = Number(response?.headers?.get?.('retry-after'))
+  if (Number.isFinite(retry) && retry > 0) return Math.ceil(retry)
+  const reset = Number(response?.headers?.get?.('x-ratelimit-reset'))
+  if (Number.isFinite(reset) && reset > 0) {
+    const seconds = Math.ceil(reset - Date.now() / 1000)
+    if (seconds > 0) return seconds
+  }
+  return undefined
+}
+
+/** Read the last successful result's copy, when one is still fresh. */
+function cachedResult(cache, currentVersion) {
+  if (!cache || typeof cache !== 'object') return undefined
+  const { at, payload } = cache
+  if (!Number.isFinite(at) || !payload || typeof payload !== 'object') return undefined
+  if (Date.now() - at > CACHE_TTL_MS) return undefined
+  // A cached answer for a different local version would compare against the wrong side.
+  if (payload.currentVersion !== currentVersion) return undefined
+  return { ...payload, cached: true, checkedAt: new Date(at).toISOString() }
+}
+
 /** Check the public repository for a newer release. Never throws for network
- * or payload problems; those surface as status:'error' with an English reason. */
-export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion, installedSource, timeoutMs = 8000 } = {}) {
+ * or payload problems; those surface as status:'error' with an English reason.
+ *
+ * @param options.cache a previous result to reuse while it is fresh, so repeated page
+ *   visits do not spend the anonymous GitHub quota.
+ * @param options.force skip the cache (an explicit "check again").
+ * @returns the same result shape as before, plus `cacheable` when it may be stored.
+ */
+export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion, installedSource, timeoutMs = 8000, cache, force = false } = {}) {
   const installed = normalizeInstalled(installedSource)
+  if (!force) {
+    const reused = cachedResult(cache, currentVersion)
+    if (reused !== undefined) return reused
+  }
   const fetchAttempts = []
   const result = {
     status: 'error',
@@ -224,6 +260,16 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
       commitAttempt.reason = 'empty-repository'
       return emptyRepository()
     }
+    if (res?.status === 403 || res?.status === 429) {
+      // The anonymous quota is per IP, so several checks in an hour exhaust it.
+      const wait = retryAfterSeconds(res)
+      commitAttempt.problem = `HTTP ${res.status}`
+      commitAttempt.retryAfterSeconds = wait
+      result.retryAfterSeconds = wait
+      return fail('rate-limited', wait === undefined
+        ? 'GitHub refused the request because this IP has used its hourly anonymous quota. Try again later; signing in is not required for the update check.'
+        : `GitHub refused the request because this IP has used its hourly anonymous quota. Try again in about ${Math.ceil(wait / 60)} minutes.`)
+    }
     if (!res || !res.ok) {
       commitAttempt.problem = `HTTP ${res?.status ?? 'unknown'}`
       commitAttempt.reason = 'commit-request-failed'
@@ -261,10 +307,9 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
     return fail('network', 'Network error while contacting the GitHub API.')
   }
 
-  // 2. Published version. The commit itself carries the tree, so read the manifest from the
-  // GitHub API rather than the raw CDN: a network that resolves the API may still fail on
-  // raw.githubusercontent.com (proxy DNS, filtered mirrors), and the version must match the
-  // exact commit being reported instead of a CDN copy that can lag behind it.
+  // 2. Published version, read from the checked commit's own tree so the version always
+  // matches the commit being reported. This costs a second API call, which is why results
+  // are cached: GitHub allows 60 anonymous requests per hour per IP.
   let latestVersion = null
   for (const source of manifestSources(commitSha)) {
     const attempt = { url: source.url }
@@ -274,6 +319,10 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
       attempt.status = res?.status ?? null
       if (!res || !res.ok) {
         attempt.problem = `HTTP ${res?.status ?? 'unknown'}`
+        if (res?.status === 403 || res?.status === 429) {
+          attempt.retryAfterSeconds = retryAfterSeconds(res)
+          if (result.retryAfterSeconds === undefined) result.retryAfterSeconds = attempt.retryAfterSeconds
+        }
         continue
       }
       const body = await readCapped(res)
@@ -301,9 +350,14 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
   }
   if (latestVersion === null) {
     const reasons = fetchAttempts.slice(1).map(attempt => `${attempt.url}: ${attempt.problem ?? 'unknown'}`)
+    if (result.retryAfterSeconds !== undefined) {
+      return fail('rate-limited', `GitHub refused the manifest lookup because this IP has used its hourly anonymous quota. Try again in about ${Math.ceil(result.retryAfterSeconds / 60)} minutes.`)
+    }
     return fail('manifest-unavailable', `Could not read the published manifest. ${reasons.join('; ')}`)
   }
   result.latestVersion = latestVersion
+  // Only a comparison that reached the repository is worth reusing.
+  result.cacheable = true
   return finish(currentVersion, latestVersion, commitSha, installed, result, fetchAttempts)
 }
 

@@ -6,6 +6,8 @@
  * the running Host resolves it natively, and tests normally run under the
  * installation's own runtime. */
 import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const require = createRequire(import.meta.url)
@@ -38,5 +40,14 @@ export function resolveInstalled(specifier) {
 export function schema() {
   const loaded = require(resolveInstalled('@deepseek-ai/schemastery'))
   return loaded.default ?? loaded
+}
+
+/** Everything this bundle declares about itself, read from beside the running module.
+ * @param moduleUrl - the module whose directory holds the manifest.
+ * @returns the parsed manifest, throwing when it is unreadable.
+ */
+export function manifestOf(moduleUrl) {
+  const file = new URL('./package.json', moduleUrl)
+  return JSON.parse(readFileSync(fileURLToPath(file), 'utf8'))
 }
 

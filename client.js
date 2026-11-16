@@ -104,6 +104,7 @@ window.__ModuleLoader__.load({
         updateFailedCancelled: '更新失败或已取消。', updateRestored: '已回滚到旧版本（{version}）。',
         updateMigrateIntro: '当前为本地链接或路径安装，无法在原地升级。请改用 Git 安装以使用页面内一键更新。',
         updateMigrateAfter: '迁移到 Git 安装后，回到本页即可直接一键更新。',
+        updateNotInstalled: '没有从插件管理器找到这份插件的安装记录，因此无法在页面内检查更新。',
         copyCommand: '复制命令', copyFailedManual: '复制失败，请手动选取命令文本复制。',
         updateNetworkError: '网络错误，无法连接更新接口。', updateHttpError: '更新接口返回错误（HTTP {status}）。',
         updateBadResponse: '更新接口返回了无法解析的响应。',
@@ -165,6 +166,7 @@ window.__ModuleLoader__.load({
         updateFailedCancelled: 'The update failed or was cancelled.', updateRestored: 'The previous version was restored ({version}).',
         updateMigrateIntro: 'This copy is installed from a local link or path, so it cannot be upgraded in place. Switch to a Git install to enable one-click updates on this page.',
         updateMigrateAfter: 'After migrating to a Git install, come back here to update in one click.',
+        updateNotInstalled: 'No installation of this plugin was found through the plugin manager, so updates cannot be checked from this page.',
         copyCommand: 'Copy command', copyFailedManual: 'Copy failed. Select the command text and copy it manually.',
         updateNetworkError: 'Network error: could not reach the update endpoint.', updateHttpError: 'The update endpoint returned an error (HTTP {status}).',
         updateBadResponse: 'The update endpoint returned an unreadable response.',
@@ -768,6 +770,11 @@ window.__ModuleLoader__.load({
 
           // Failure: persistent, readable, with an explicit retry (polite live region).
           state.phase === 'error' ? h(LiveNote, { error: true, icon: 'info', text: state.error || t('updateCheckFailed'), live: 'polite' }) : null,
+
+          // The plugin is not installed through the manager at all: explain rather than
+          // reporting a bare package name the user never chose.
+          state.phase === 'ok' && data.installed === false
+            ? h(Note, { icon: 'info' }, data.message || t('updateNotInstalled')) : null,
 
           // Ready: show the (truncated) release notes of the newer version.
           state.phase === 'ok' && status === 'ready' && data.notes

@@ -38,6 +38,10 @@ dsh plugin add https://github.com/WTYJ/dsh-cross-model-subagent.git
 
 版本号从被检查的那次提交里读取（GitHub contents API），而不是先取提交再取 CDN 文件：两者可能不同步，且部分网络能访问 API、却无法解析 `raw.githubusercontent.com`。CDN 仅作为回退。
 
+一次检查会花掉两次 GitHub 匿名请求，而匿名配额是按 IP 每小时 60 次，因此成功结果在 Host 侧缓存 10 分钟，重复打开页面不会再请求；点「重新检查」才强制刷新。配额用尽时页面会显示大约需要等待多久，而不是笼统的失败。
+
+更新区按“当前正在运行的那份副本”检查：Profile 里仍记录旧包名（例如早期的 `@local/dsh-cross-model-subagent`）时也会被识别，不会误报为未安装。
+
 页面通过插件自己的 Host 路由 `POST /model-delegation/update` 调用同一套逻辑：该路由只接受 `check` 与 `apply` 两个动作、限制请求体大小、拒绝跨源请求，并且不携带任何凭据。安装动作同样可以通过工具 `cross_model_subagent_update` 由模型触发。
 
 ## 实现与范围

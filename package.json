@@ -7,6 +7,9 @@
   "homepage": "https://github.com/WTYJ/dsh-cross-model-subagent",
   "license": "MIT",
   "description": "Choose the model native subagents run on: set it per session or as a global default, so the main agent and its subagents can use different models. The settings page also checks for and installs newer releases.",
+  "previousNames": [
+    "@local/dsh-cross-model-subagent"
+  ],
   "exports": {
     ".": "./index.js",
     "./updates": "./updating-entry.js",

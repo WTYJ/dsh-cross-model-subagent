@@ -7,8 +7,8 @@
  * delegates installation to DSH's plugin manager so profile files, rollback,
  * and restart reporting stay framework-owned. */
 import { REPOSITORY } from './updating.js'
-import { schema } from './installed.js'
-import { PACKAGE_NAME, applyUpdate, installedVersion, isPinnedSpec, updateStatus } from './updating-host.js'
+import { manifestOf, schema } from './installed.js'
+import { applyUpdate, isPinnedSpec, updateStatus } from './updating-host.js'
 
 const z = schema()
 
@@ -21,8 +21,27 @@ export const Config = z.object({
   checkTimeoutMs: z.natural().min(1000).max(60000).default(8000),
 })
 
+/** This file's own manifest: the running copy, not a name assumed in advance. */
+const SELF = manifestOf(import.meta.url)
+
 export const ROUTE = '/model-delegation/update'
 const MAX_BODY = 8 * 1024
+
+/** Git repository name, kept as the last candidate so upgrading from a copy that
+ * recorded no earlier names still resolves. */
+const REPOSITORY_NAME = '@wtyj/dsh-cross-model-subagent'
+
+/** Package names that may hold this plugin in a profile, most specific first.
+ *
+ * The manifest name is the one this copy reports itself as. A profile that still
+ * records an earlier name is checked too, because the running copy is the one the
+ * user is looking at — reporting "not installed" for it would be wrong. The Git
+ * repository name stays last so upgrading from a renamed copy still resolves.
+ */
+export function candidateNames(self = SELF) {
+  const names = [self?.name, ...(Array.isArray(self?.previousNames) ? self.previousNames : []), REPOSITORY_NAME]
+  return [...new Set(names.filter(name => typeof name === 'string' && name.length > 0))]
+}
 
 const output = {
   schema: { type: 'object', additionalProperties: true },
@@ -53,16 +72,29 @@ function readBody(req) {
 export function apply(ctx, config = {}) {
   const timeoutMs = Number(config.checkTimeoutMs) > 0 ? Number(config.checkTimeoutMs) : 8000
   const managerOf = () => ctx.get('pluginManager')
-  const version = installedVersion()
+  const version = typeof SELF?.version === 'string' ? SELF.version : null
+  const names = candidateNames()
+  // GitHub allows 60 anonymous requests per hour per IP and one check costs two, so the
+  // last good answer is reused for a while instead of being re-fetched on every visit.
+  let cache
 
   async function run(action, payload, signal) {
     const manager = managerOf()
     if (!manager) return { ok: false, action, message: 'The plugin manager is unavailable in this profile, so updates cannot be managed here.' }
-    if (action === 'check') return { ...await updateStatus(manager, PACKAGE_NAME, { signal, timeoutMs }), action }
-    const request = { version: payload?.version, spec: payload?.spec, name: PACKAGE_NAME }
+    if (action === 'check') {
+      const result = await updateStatus(manager, names, { signal, timeoutMs, cache, force: payload?.force === true })
+      if (result.cacheable) cache = { at: Date.now(), payload: { ...result } }
+      return { ...result, action }
+    }
+    // A pinned commit is the only target: the manager refuses anything else anyway.
+    const request = { version: payload?.version, spec: payload?.spec, name: payload?.name }
     if (typeof request.version !== 'string' || typeof request.spec !== 'string' || !isPinnedSpec(request.spec)) {
       return { ok: false, action, message: 'Send a version and its pinned commit returned by check.' }
     }
+    if (!names.includes(request.name)) {
+      return { ok: false, action, message: 'The named installation is not this plugin.' }
+    }
+    cache = undefined
     return { ...await applyUpdate(manager, request), action }
   }
 
@@ -83,7 +115,9 @@ export function apply(ctx, config = {}) {
         if (!payload || typeof payload !== 'object' || Array.isArray(payload)) { json(res, { ok: false, message: 'The body must be an object.' }, 400); return }
         if (payload.action !== 'check' && payload.action !== 'apply') { json(res, { ok: false, message: 'Unknown action.' }, 400); return }
         const result = await run(payload.action, payload, signal)
-        json(res, { ...result, repository: REPOSITORY.url, reportedVersion: version }, result.ok === false && payload.action === 'apply' ? 502 : 200)
+        // `cacheable` and the internal error text stay on this side of the wire.
+        const { cacheable: _cacheable, ...publicResult } = result
+        json(res, { ...publicResult, repository: REPOSITORY.url, reportedVersion: version }, result.ok === false && payload.action === 'apply' ? 502 : 200)
       } catch (error) {
         json(res, { ok: false, message: error?.message ?? String(error) }, 502)
       }
