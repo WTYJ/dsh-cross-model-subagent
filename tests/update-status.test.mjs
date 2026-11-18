@@ -33,7 +33,7 @@ function fakeManager(bundles) {
 
 test('a profile holding an older package name is still recognised', async () => {
   const status = await updateStatus(
-    fakeManager([{ name: '@local/dsh-cross-model-subagent', version: '0.1.0', enabled: true, update: undefined, source: 'link:C:/src/plugin' }]),
+    fakeManager([{ name: '@local/dsh-cross-model-subagent', version: '0.1.0', enabled: true, update: undefined, source: '@local/dsh-cross-model-subagent@link:C:/src/plugin' }]),
     ['@wtyj/dsh-cross-model-subagent', '@local/dsh-cross-model-subagent'],
     { fetchImpl: fakeFetch('0.2.0') },
   )

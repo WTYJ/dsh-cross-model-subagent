@@ -18,6 +18,12 @@ const dict = sandbox.dict
 
 const used = [...new Set([...source.matchAll(/t\('([A-Za-z]+)'\)/g)].map((match) => match[1]))]
 
+test('the client factory registers under the bundle manifest name', () => {
+  const manifest = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+  const registration = source.match(/__ModuleLoader__\.load\(\{\s*id:\s*['"]([^'"]+)['"]/)
+  assert.equal(registration?.[1], manifest.name)
+})
+
 test('the panel renders text through t() only', () => {
   assert.ok(used.length > 40, 'the panel should use the dictionaries for its labels')
 })

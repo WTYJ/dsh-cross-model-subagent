@@ -70,7 +70,10 @@ export async function updateStatus(manager, names = [PACKAGE_NAME], { version, f
       message: `This plugin is not installed through the plugin manager, so updates cannot be checked from here. Install it from ${REPOSITORY.url} to enable in-page updates.`,
     }
   }
-  const dependency = typeof bundle.source === 'string' ? bundle.source : undefined
+  // BundleInfo.source may be a complete install spec (name@dependency).
+  const prefix = `${bundle.name}@`
+  const source = typeof bundle.source === 'string' ? bundle.source : undefined
+  const dependency = source?.startsWith(prefix) ? source.slice(prefix.length) : source
   const installedSource = { kind: dependency ? sourceKind(dependency) : 'unknown', spec: dependency }
   const check = await checkForUpdate({ fetchImpl, signal, currentVersion, installedSource, timeoutMs, cache, force })
   return {

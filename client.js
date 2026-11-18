@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: '@local/dsh-cross-model-subagent',
+  id: '@wtyj/dsh-cross-model-subagent',
   factory(require) {
     const React = require('react')
     const h = React.createElement

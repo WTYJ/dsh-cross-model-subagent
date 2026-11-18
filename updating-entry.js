@@ -87,12 +87,9 @@ export function apply(ctx, config = {}) {
       return { ...result, action }
     }
     // A pinned commit is the only target: the manager refuses anything else anyway.
-    const request = { version: payload?.version, spec: payload?.spec, name: payload?.name }
+    const request = { version: payload?.version, spec: payload?.spec, name: REPOSITORY_NAME }
     if (typeof request.version !== 'string' || typeof request.spec !== 'string' || !isPinnedSpec(request.spec)) {
       return { ok: false, action, message: 'Send a version and its pinned commit returned by check.' }
-    }
-    if (!names.includes(request.name)) {
-      return { ok: false, action, message: 'The named installation is not this plugin.' }
     }
     cache = undefined
     return { ...await applyUpdate(manager, request), action }
