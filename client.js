@@ -49,28 +49,22 @@ window.__ModuleLoader__.load({
     const dict = {
       zh: {
         panelTitle: '模型分工', panelIcon: '模型分工',
-        intro: '为原生 subagent 委派安排执行模型：主模型负责规划与审查，执行模型完成任务。',
-        roleMain: '主模型', roleMainHint: '负责规划、拆分任务与审查结果。',
-        roleFlow: '规划审查 → 委派执行',
-        roleWorker: '执行模型', roleWorkerHint: '按规划完成具体任务。',
-        rolesTitle: '分工概览',
-        colSession: '会话覆盖（优先）', colGlobal: '全局默认（次级）',
-        globalTitle: '全局默认执行模型', globalHint: '用于没有会话覆盖的原生 subagent 委派。',
-        enable: '使用指定的默认子agent模型', off: '全局默认关闭：沿用父agent模型。', model: '默认子agent模型',
-        sessionTitle: '会话模型覆盖', sessionHint: '为所选会话的后续原生委派指定单个执行模型；会话覆盖优先于全局默认。',
-        optional: '可选',
-        target: '目标会话', mode: '会话模型模式', inherit: '继承全局默认（清除会话覆盖）', parent: '沿用父agent模型', route: '指定一个模型',
-        sessionModel: '该会话的子agent模型', inheritHint: '清除覆盖后，这个会话将使用全局默认；全局关闭时沿用父模型。',
-        parentHint: '这个会话始终沿用父agent模型，即使全局指定了默认模型。', routeHint: '这个会话使用下面的模型，即使全局默认关闭。',
-        modeHelp: '三选一：继承全局默认、沿用父agent模型，或指定一个模型。本组任一选择都不会自动提交。',
+        intro: '为普通子代理设置执行模型，并管理会话的团队协作。',
+        workerSettings: '执行模型',
+        globalTitle: '全局默认', globalHint: '用于未单独设置执行模型的会话。',
+        enable: '指定全局执行模型', off: '关闭时沿用父级模型。', model: '全局执行模型',
+        sessionTitle: '会话覆盖', sessionHint: '对所选会话的后续委派生效，优先于全局默认。',
+        target: '目标会话', mode: '会话模型模式', inherit: '继承全局默认', parent: '沿用父级模型', route: '指定一个模型',
+        sessionModel: '本会话的执行模型', inheritHint: '清除覆盖后，这个会话将使用全局默认；全局关闭时沿用父模型。',
+        parentHint: '这个会话始终沿用父级模型，即使全局指定了默认模型。', routeHint: '这个会话使用下面的模型，即使全局默认关闭。',
+        modeHelp: '三选一：继承全局默认、沿用父级模型，或指定一个模型。本组任一选择都不会自动提交。',
         effective: '当前已保存的行为：', noSession: '暂无可选会话。请先创建或打开会话，再刷新。', current: '当前会话',
         sessionLoading: '正在加载会话…', missingSession: '所选会话已不在可用列表中。草稿保留，请撤销后重新选择。',
-        selectedIdLabel: '所选会话 ID', copyId: '复制', copied: '已复制', copyFailed: '复制失败，可直接选取会话 ID 文本。',
-        teamsTitle: '团队协作', teamsHint: '新会话默认与已有会话分别控制是否启用 Agent Teams。',
-        forceTitle: '新会话默认', forceHint: '开启后，新建的根会话自动启用 Agent Teams。', forceLabel: '新建会话自动启用团队协作',
+        selectedIdLabel: '所选会话详情', copyId: '复制', copied: '已复制', copyFailed: '复制失败，可直接选取会话 ID 文本。',
+        teamsTitle: '团队协作', teamsHint: '为所选会话启用或停用团队协作。',
+        forceTitle: '新会话默认', forceHint: '应用于之后新建的根会话。', forceLabel: '自动启用团队协作',
         teamsExistingTitle: '已有会话', teamsTarget: '团队协作目标会话',
         teamsEnable: '启用团队协作', teamsDisable: '停用团队协作', teamsEnabled: '已为所选会话启用团队协作。', teamsDisabled: '已为所选会话停用团队协作。',
-        teamsUnknown: '操作会应用到所选会话，状态以所选会话为准；操作结果显示在下方。',
         save: '保存', saving: '保存中…', discard: '撤销草稿', saved: '已保存', working: '处理中…',
         dirty: '有未保存的修改。', switchProtected: '请先保存或撤销草稿，再切换目标会话。',
         refused: 'Host 未接受保存（可能是配置已改变或验证失败）。草稿已保留，请刷新后核对。',
@@ -84,11 +78,11 @@ window.__ModuleLoader__.load({
         error: '操作失败', sessions: '会话', models: '模型', config: '配置', retry: '重试刷新',
         details: '适用范围与说明',
         scopeHint: '支持 DSH 内置 standard / ptc / cordis 预设。保存后，主agent 下一次普通 subagent 委派使用新默认模型。subagent_fork 保持原生模型与缓存语义；显式指定模型仍受原生授权策略约束。',
-        legacy: '检测到旧版会话授权数据。授权名单不会自动转换为默认模型，请在下方为需要的会话重新选择执行模型。',
-        updateTitle: '版本与更新', updateHint: '检查此插件在 GitHub 上的公开发布，并可从页面内一步安装新版本。',
+        legacy: '检测到旧版会话授权数据。请在「会话覆盖」中为相应会话选择执行模型。',
+        updateTitle: '版本与更新', updateHint: '检查并安装此插件的 GitHub 版本。',
         updateCurrentVersion: '当前版本', updateLatestVersion: '最新版本', updateStatus: '状态', updateCheckedAt: '上次检查',
         updateVersionUnknown: '未知', updateVersionPending: '检查中',
-        updateChecking: '正在检查更新…', updateCheckingShort: '正在检查…', updateCheckFailed: '无法检查更新。',
+        updateCheckingShort: '正在检查…', updateCheckFailed: '无法检查更新。',
         updateCheckedNever: '尚未检查',
         updateBadgeReady: '可发现新版本', updateBadgeUpToDate: '已是最新', updateBadgeAhead: '当前本地版本更新',
         updateEmptyNote: '仓库还没有任何提交，因此暂时无法比较版本；推送第一个版本后再检查即可。',
@@ -111,28 +105,22 @@ window.__ModuleLoader__.load({
       },
       en: {
         panelTitle: 'Model delegation', panelIcon: 'Model delegation',
-        intro: 'Plan the execution model for native subagent delegations: the main model plans and reviews, the worker model does the task.',
-        roleMain: 'Main model', roleMainHint: 'Plans, splits tasks, and reviews results.',
-        roleFlow: 'Plan & review → delegate',
-        roleWorker: 'Worker model', roleWorkerHint: 'Completes the assigned task.',
-        rolesTitle: 'Delegation overview',
-        colSession: 'Session override (primary)', colGlobal: 'Global default (secondary)',
-        globalTitle: 'Global default worker model', globalHint: 'Used for native subagent delegations without a session override.',
-        enable: 'Use a specified default subagent model', off: 'Global default is off: use the parent model.', model: 'Default subagent model',
-        sessionTitle: 'Session model override', sessionHint: 'Set one worker model for the selected session’s next native delegations; a session override takes priority over the global default.',
-        optional: 'optional',
-        target: 'Target session', mode: 'Session model mode', inherit: 'Inherit global default (clear override)', parent: 'Use parent model', route: 'Specify one model',
+        intro: 'Set the worker model for ordinary subagents and manage session teamwork.',
+        workerSettings: 'Worker model',
+        globalTitle: 'Global default', globalHint: 'Applies to sessions without a worker model override.',
+        enable: 'Use a global worker model', off: 'When off, subagents inherit the parent model.', model: 'Global worker model',
+        sessionTitle: 'Session override', sessionHint: 'Applies to future delegations in the selected session and takes priority over the global default.',
+        target: 'Target session', mode: 'Session model mode', inherit: 'Inherit global default', parent: 'Use parent model', route: 'Specify one model',
         sessionModel: 'Subagent model for this session', inheritHint: 'Clearing the override restores the global default, or the parent model when the global default is off.',
         parentHint: 'This session uses the parent model even when a global default is specified.', routeHint: 'This session uses the model below even when the global default is off.',
         modeHelp: 'Choose one of three: inherit the global default, use the parent model, or specify one model. Selecting any option never auto-submits.',
         effective: 'Currently saved behavior: ', noSession: 'No sessions available. Create or open a session, then refresh.', current: 'Current session',
         sessionLoading: 'Loading sessions…', missingSession: 'The selected session is no longer available. The draft is retained; discard it to select another session.',
-        selectedIdLabel: 'Selected session ID', copyId: 'Copy', copied: 'Copied', copyFailed: 'Copy failed. Select the session ID text to copy it manually.',
-        teamsTitle: 'Agent Teams', teamsHint: 'Control Agent Teams separately for new sessions and existing sessions.',
-        forceTitle: 'New sessions', forceHint: 'Automatically enable Agent Teams for newly created root sessions.', forceLabel: 'Enable Agent Teams automatically for new sessions',
-        teamsExistingTitle: 'Existing session', teamsTarget: 'Agent Teams target session',
+        selectedIdLabel: 'Selected session details', copyId: 'Copy', copied: 'Copied', copyFailed: 'Copy failed. Select the session ID text to copy it manually.',
+        teamsTitle: 'Agent Teams', teamsHint: 'Enable or disable teamwork for the selected session.',
+        forceTitle: 'New sessions', forceHint: 'Applies to newly created root sessions.', forceLabel: 'Enable teamwork automatically',
+        teamsExistingTitle: 'Existing session', teamsTarget: 'Target session for teamwork',
         teamsEnable: 'Enable Agent Teams', teamsDisable: 'Disable Agent Teams', teamsEnabled: 'Agent Teams enabled for the selected session.', teamsDisabled: 'Agent Teams disabled for the selected session.',
-        teamsUnknown: 'The action applies to the selected session; its state follows that session. The result appears below.',
         save: 'Save', saving: 'Saving…', discard: 'Discard draft', saved: 'Saved', working: 'Working…',
         dirty: 'Unsaved changes.', switchProtected: 'Save or discard the draft before switching sessions.',
         refused: 'The Host refused the save (configuration may have changed or validation failed). Your draft is retained; refresh and review it.',
@@ -147,10 +135,10 @@ window.__ModuleLoader__.load({
         details: 'Scope & notes',
         scopeHint: 'Supports the shipped standard / ptc / cordis presets. Saved worker defaults apply to the parent agent’s next ordinary subagent delegation. subagent_fork keeps its native model and cache behavior; explicit model choices still follow native authorization.',
         legacy: 'Legacy session authorization data was found. Allowlists are not converted into a default model; choose a worker model again for the relevant sessions.',
-        updateTitle: 'Version & updates', updateHint: 'Check this plugin’s public GitHub release and install a newer version in one step from this page.',
+        updateTitle: 'Version & updates', updateHint: 'Check for and install this plugin’s GitHub releases.',
         updateCurrentVersion: 'Current version', updateLatestVersion: 'Latest version', updateStatus: 'Status', updateCheckedAt: 'Last checked',
         updateVersionUnknown: 'Unknown', updateVersionPending: 'Checking',
-        updateChecking: 'Checking for updates…', updateCheckingShort: 'Checking…', updateCheckFailed: 'Could not check for updates.',
+        updateCheckingShort: 'Checking…', updateCheckFailed: 'Could not check for updates.',
         updateCheckedNever: 'Not checked yet',
         updateBadgeReady: 'New version available', updateBadgeUpToDate: 'Up to date', updateBadgeAhead: 'Local version is newer',
         updateEmptyNote: 'The repository has no commits yet, so there is no version to compare against. Check again after the first release is pushed.',
@@ -183,156 +171,111 @@ window.__ModuleLoader__.load({
       ok: 'var(--dsw-alias-state-success-primary)',
       warn: 'var(--dsw-alias-state-warn-primary)', focus: 'var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary))',
     }
-    // Inline styles carry layout that must not depend on the query, plus the theme tokens that
-    // come from CSS variables. The container query rules and focus/hover/live behaviors live in
-    // the scoped <style> block rendered inside the panel (see PANEL_CSS), scoped under #ROOT.
+    // Body and controls share one size. Weight distinguishes row headings and labels;
+    // secondary text stays within one step of body text.
+    const type = { title: '1.375rem', section: '1.125rem', body: '1rem', detail: '0.9375rem' }
+    // Keep text sizes and spacing consistent across the forms and the update summary.
     const S = {
-      wrap: { flex: '1 1 auto', minHeight: 0, height: '100%', width: '100%', overflowY: 'auto',
-        scrollbarGutter: 'stable', overscrollBehavior: 'contain',
-        boxSizing: 'border-box', color: C.text },
-      inner: { maxWidth: 1120, margin: '0 auto', padding: '24px 24px', paddingInline: 'clamp(12px, 4cqi, 24px)',
-        paddingTop: 'calc(24px + var(--dsh-frame-leading-clearance, 0px))', boxSizing: 'border-box' },
-      header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', margin: '0 0 20px' },
-      headerText: { minWidth: 0, flex: '1 1 260px' },
-      title: { fontSize: 20, fontWeight: 600, margin: '0 0 6px', lineHeight: 1.3 },
-      sub: { fontSize: 13, color: C.muted, lineHeight: 1.6, margin: 0, overflowWrap: 'anywhere' },
-      iconBtn: { flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 8, padding: '7px 10px', border: '1px solid ' + C.border, background: C.fill, color: C.text, fontSize: 13, cursor: 'pointer', lineHeight: 1, whiteSpace: 'nowrap' },
-      // Both grids are class-only; their column counts are set in PANEL_CSS via container queries
-      // so the layout follows the panel's real width, not the viewport. Columns stretch so two cards
-      // of different heights end on the same line instead of leaving a ragged edge.
-      grid: { display: 'grid', gap: 16, alignItems: 'stretch' },
-      group: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 },
-      groupTitle: { fontSize: 12, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase', color: C.faint, margin: 0 },
-      // The column wrapper fills the stretched row so its single card can absorb the height gap.
-      cards: { display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0, flex: '1 1 auto' },
-      // Height comes from the grid's stretch, not from flex growth: a card alone in its own row
-      // keeps its natural height instead of being inflated to the panel width's row.
-      card: { minWidth: 0, border: '1px solid ' + C.borderSoft, borderRadius: 12, padding: 20, background: C.surface, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', flex: '0 1 auto' },
-      cardFeature: { borderColor: C.border, background: C.surface },
-      // Absorbs leftover height inside the card so the action footer rests on its bottom edge.
-      cardBody: { display: 'flex', flexDirection: 'column', flex: '1 1 auto', minWidth: 0 },
-      headRow: { display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 6px' },
-      heading: { fontSize: 15, fontWeight: 600, margin: 0, minWidth: 0 },
-      tag: { flex: '0 0 auto', fontSize: 11, fontWeight: 500, padding: '1px 7px', borderRadius: 999, border: '1px solid ' + C.borderSoft, color: C.muted, background: C.fill, lineHeight: 1.6 },
-      hint: { fontSize: 13, color: C.muted, lineHeight: 1.6, margin: '0 0 12px', overflowWrap: 'anywhere' },
-      body: { marginTop: 4 },
-      row: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', margin: '12px 0' },
-      field: { display: 'grid', gap: 6, fontSize: 13, margin: '12px 0', minWidth: 0 },
-      select: { width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 8, border: '1px solid ' + C.border, padding: '9px 10px', color: C.text, background: C.surface, font: 'inherit', fontSize: 'max(1rem, 1em)' },
-      button: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 8, padding: '8px 12px', border: '1px solid ' + C.border, background: C.fill, color: C.text, fontSize: 13, cursor: 'pointer', maxWidth: '100%', whiteSpace: 'normal', lineHeight: 1.2, minBlockSize: 32 },
+      wrap: { flex: '1 1 auto', minHeight: 0, height: '100%', width: '100%', overflowY: 'auto', scrollbarGutter: 'stable',
+        overscrollBehavior: 'contain', boxSizing: 'border-box', color: C.text, fontSize: type.body, lineHeight: 1.5 },
+      inner: { maxInlineSize: '62rem', marginInline: 'auto', padding: '1.5rem clamp(1rem, 4cqi, 2rem) 2.5rem',
+        paddingBlockStart: 'calc(1.5rem + var(--dsh-frame-leading-clearance, 0px))' },
+      header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' },
+      headerText: { flex: '1 1 18rem', minWidth: 0 },
+      title: { fontSize: type.title, fontWeight: 650, margin: '0 0 0.375rem', lineHeight: 1.25 },
+      sub: { color: C.muted, margin: 0, maxInlineSize: '60ch' },
+      sectionHeading: { fontSize: type.section, fontWeight: 650, lineHeight: 1.35, margin: 0 },
+      groupTitle: { fontSize: type.section, fontWeight: 650, lineHeight: 1.35, margin: '0 0 0.625rem' },
+      card: { border: '1px solid ' + C.borderSoft, borderRadius: '0.75rem', background: C.surface },
+      heading: { fontSize: type.body, fontWeight: 650, lineHeight: 1.4, margin: 0 },
+      tag: { display: 'inline-block', fontSize: type.detail, fontWeight: 600, padding: '0.125rem 0.5rem', borderRadius: '0.375rem', background: C.fill },
+      hint: { color: C.muted, fontSize: type.detail, margin: 0 },
+      row: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' },
+      field: { display: 'grid', gap: '0.375rem', minWidth: 0, fontWeight: 550 },
+      select: { width: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: '0.5rem', border: '1px solid ' + C.border,
+        minBlockSize: '2.25rem', padding: '0.5rem 0.75rem', color: C.text, background: C.fill, font: 'inherit', fontWeight: 400 },
+      button: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', borderRadius: '0.5rem',
+        padding: '0.4375rem 0.75rem', border: '1px solid ' + C.border, background: C.fill, color: C.text,
+        font: 'inherit', fontWeight: 550, cursor: 'pointer', maxWidth: '100%', minBlockSize: '2.25rem' },
       primary: { background: C.primary, color: C.onPrimary, borderColor: C.primary },
-      disabled: { opacity: 0.5, cursor: 'not-allowed' },
-      note: { display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', fontSize: 13, lineHeight: 1.6, background: C.fill, borderRadius: 8, margin: '10px 0', overflowWrap: 'anywhere' },
-      noteError: { borderLeft: '3px solid ' + C.error },
-      noteOk: { borderLeft: '3px solid ' + C.ok },
-      // The footer stays at the card's bottom edge: its margin pushes it down once the body has
-      // grown, so save/discard rows line up across two columns of different heights.
-      // Actions rest on the card's bottom edge once the body has absorbed the row's extra height.
-      footer: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 'auto', paddingTop: 16 },
-      // Same row of buttons when nothing should be pushed down (the update card's lone action row).
-      actionRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingTop: 16 },
-      roles: { display: 'grid', gap: 12, margin: '0 0 20px' },
-      roleBox: { display: 'flex', gap: 10, alignItems: 'flex-start', border: '1px solid ' + C.borderSoft, borderRadius: 10, padding: 14, background: C.surface, minWidth: 0 },
-      roleIcon: { flex: '0 0 auto', color: C.muted, marginTop: 1 },
-      roleName: { fontSize: 13, fontWeight: 600, margin: '0 0 2px' },
-      roleHint: { fontSize: 12, color: C.muted, lineHeight: 1.5, margin: 0, overflowWrap: 'anywhere' },
-      flow: { flex: '0 0 auto', alignSelf: 'center', color: C.caption, fontSize: 12, whiteSpace: 'nowrap' },
-      switchLabel: { display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, lineHeight: 1.5, margin: '4px 0', minBlockSize: 24, minInlineSize: 24 },
-      checkbox: { width: 18, height: 18, accentColor: C.primary, flex: '0 0 auto', cursor: 'pointer', margin: 0 },
-      // radio group for the 3-way session mode
-      radioGroup: { border: '1px solid ' + C.borderSoft, borderRadius: 10, padding: '10px 12px', margin: '12px 0', minWidth: 0 },
-      radioLegend: { fontSize: 13, fontWeight: 600, padding: '0 4px', color: C.text },
-      radioRow: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '6px 0', minWidth: 0 },
-      radio: { width: 18, height: 18, accentColor: C.primary, flex: '0 0 auto', cursor: 'pointer', margin: '2px 0 0' },
-      radioLabel: { display: 'flex', flexDirection: 'column', gap: 2, cursor: 'pointer', fontSize: 13, lineHeight: 1.5, minWidth: 0 },
-      radioHint: { fontSize: 12, color: C.muted, lineHeight: 1.5, overflowWrap: 'anywhere' },
-      details: { marginTop: 8, border: '1px solid ' + C.borderSoft, borderRadius: 8, padding: '8px 12px', background: C.surface },
-      summary: { cursor: 'pointer', fontSize: 13, color: C.muted, fontWeight: 500, minBlockSize: 24 },
-      detailsBody: { fontSize: 12.5, color: C.muted, lineHeight: 1.6, margin: '8px 0 2px', overflowWrap: 'anywhere' },
-      meta: { fontSize: 12, color: C.faint, margin: '4px 0 0', overflowWrap: 'anywhere' },
-      copyRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '6px 0 0' },
-      code: { fontFamily: 'var(--dsw-font-family)', fontSize: 12, color: C.faint, background: C.fill, borderRadius: 6, padding: '4px 8px', overflowWrap: 'anywhere', wordBreak: 'break-all', minWidth: 0, flex: '1 1 140px' },
-      copyBtn: { flex: '0 0 auto', borderRadius: 6, padding: '3px 8px', border: '1px solid ' + C.border, background: C.surface, color: C.muted, fontSize: 12, cursor: 'pointer', lineHeight: 1.4, minBlockSize: 24, minInlineSize: 24 },
-      effective: { fontSize: 12.5, color: C.muted, margin: '12px 0 0', overflowWrap: 'anywhere' },
+      disabled: { opacity: 0.55, cursor: 'not-allowed' },
+      note: { display: 'flex', alignItems: 'flex-start', gap: '0.5rem', padding: '0.5rem 0.75rem', fontSize: type.detail,
+        background: C.fill, borderRadius: '0.5rem' },
+      noteError: { borderInlineStart: '3px solid ' + C.error },
+      noteOk: { borderInlineStart: '3px solid ' + C.ok },
+      choice: { alignItems: 'start', cursor: 'pointer', display: 'grid', gridTemplateColumns: '1.125rem minmax(0, 1fr)',
+        columnGap: '0.625rem', paddingBlock: '0.375rem' },
+      input: { inlineSize: '1.125rem', blockSize: '1.125rem', accentColor: C.primary, margin: '0.125rem 0 0' },
+      radioGroup: { border: 0, padding: 0, margin: 0, minInlineSize: 0 },
+      radioLegend: { fontWeight: 650, padding: 0, marginBlockEnd: '0.25rem' },
+      details: { color: C.muted, fontSize: type.detail },
+      summary: { cursor: 'pointer', inlineSize: 'fit-content', maxInlineSize: '100%', paddingBlock: '0.125rem' },
+      detailsBody: { marginBlockStart: '0.375rem', maxInlineSize: '65ch' },
+      detailsTitle: { margin: '0 0 0.375rem', color: C.text },
+      copyRow: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' },
+      code: { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: type.detail, color: C.text,
+        background: C.fill, borderRadius: '0.375rem', padding: '0.25rem 0.5rem', overflowWrap: 'anywhere' },
+      effective: { fontSize: type.detail, color: C.muted, margin: 0 },
       icon: { flex: '0 0 auto' },
-      // Version & update block: label/value rows, install confirm region, notes and migration.
-      versionRow: { display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', margin: '4px 0', minWidth: 0 },
-      // The four version rows form one block; spacing above comes from the card hint alone.
-      versionBlock: { margin: 0 },
-      versionLabel: { flex: '0 0 auto', minWidth: 92, fontSize: 12.5, color: C.muted },
-      versionValue: { minWidth: 0, flex: '1 1 auto', fontSize: 13, color: C.text, overflowWrap: 'anywhere' },
-      updateNotes: { fontSize: 12.5, color: C.muted, lineHeight: 1.6, margin: '10px 0 0', padding: '8px 10px', background: C.fill, borderRadius: 8, overflowWrap: 'anywhere' },
-      confirmBox: { flex: '1 1 260px', minWidth: 0, border: '1px solid ' + C.border, borderRadius: 8, padding: '10px 12px', background: C.surfaceAlt, margin: '4px 0' },
-      confirmQuestion: { fontSize: 13, margin: '0 0 8px', lineHeight: 1.5, overflowWrap: 'anywhere' },
-      migrateBox: { margin: '12px 0 0', minWidth: 0 },
+      versionBlock: { display: 'grid', gap: '0.75rem 1rem', margin: 0 },
+      versionLabel: { fontSize: type.detail, color: C.muted },
+      versionValue: { minWidth: 0, margin: '0.25rem 0 0', fontVariantNumeric: 'tabular-nums' },
+      updateNotes: { fontSize: type.detail, color: C.muted, margin: 0 },
+      confirmBox: { flex: '1 1 16rem', border: '1px solid ' + C.border, borderRadius: '0.5rem', padding: '0.75rem', background: C.surfaceAlt },
+      confirmQuestion: { margin: '0 0 0.5rem' },
     }
 
-    // Scoped stylesheet rendered as a React element inside the panel. Every selector is nested
-    // under #ROOT so nothing reaches the DSH shell; no global element/body/root rules and no
-    // external CSS assets. Container queries adapt to the panel's own width (not 4vw viewport).
     const PANEL_CSS = `
 #${ROOT} {
-  container-type: inline-size;
-  container-name: cms;
+  container: cms / inline-size;
   min-inline-size: 0;
   overflow-wrap: anywhere;
 }
-#${ROOT} .cms-inner { min-inline-size: 0; }
-#${ROOT} .cms-title { text-wrap: balance; }
-#${ROOT} .cms-card-heading { text-wrap: balance; }
-#${ROOT} .cms-sub, #${ROOT} .cms-hint, #${ROOT} .cms-details-body, #${ROOT} .cms-radio-hint,
-#${ROOT} .cms-role-hint, #${ROOT} .cms-note, #${ROOT} .cms-effective { text-wrap: pretty; }
-#${ROOT} .cms-inner * { min-inline-size: 0; }
-#${ROOT} .cms-longid { overflow-wrap: anywhere; word-break: break-word; }
-/* Default: single column. Both grids flip to two columns only when the panel itself is wide. */
-#${ROOT} .cms-grid { grid-template-columns: 1fr; }
-#${ROOT} .cms-roles { grid-template-columns: 1fr; }
-@container cms (inline-size >= 34rem) {
-  #${ROOT} .cms-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  #${ROOT} .cms-roles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#${ROOT} .cms-inner { display: grid; gap: 1.5rem; box-sizing: border-box; }
+#${ROOT} .cms-stack { display: grid; gap: 0.75rem; min-inline-size: 0; }
+#${ROOT} .cms-stack > .cms-idle,
+#${ROOT} .cms-feedback:not(:has(> :not(.cms-idle))) { position: absolute; }
+#${ROOT} .cms-card { padding: clamp(0.875rem, 3cqi, 1.25rem); }
+#${ROOT} .cms-card + .cms-card { border-block-start: 1px solid ${C.borderSoft}; }
+#${ROOT} .cms-card-header { display: grid; gap: 0.375rem; align-content: start; min-inline-size: 0; }
+#${ROOT} .cms-card-title { display: flex; align-items: center; gap: 0.5rem; }
+#${ROOT} .cms-card-title svg { color: ${C.muted}; }
+#${ROOT} .cms-versions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#${ROOT} .cms-versions > div { min-inline-size: 0; }
+#${ROOT} .cms-saved { color: ${C.text}; font-weight: 600; }
+#${ROOT} .cms-radio-copy { display: grid; gap: 0.125rem; min-inline-size: 0; }
+#${ROOT} .cms-radio-copy > span:first-child { font-weight: 550; }
+#${ROOT} .cms-select, #${ROOT} button { font-family: inherit; font-size: ${type.body}; line-height: 1.5; }
+#${ROOT} .cms-select { text-overflow: ellipsis; }
+#${ROOT} .cms-field-error { font-size: ${type.detail}; color: ${C.error}; }
+@container cms (inline-size >= 43rem) {
+  #${ROOT} .cms-card { grid-template-columns: minmax(10rem, 1fr) minmax(0, 2.2fr); column-gap: 1.5rem; }
 }
-/* Focus rings on the scoped interactive elements only; never suppress the browser default. */
-#${ROOT} :is(button, select, summary, input[type="checkbox"], input[type="radio"], a):focus-visible {
-  outline: 2px solid ${C.focus};
-  outline-offset: 2px;
+@container cms (inline-size >= 56rem) {
+  #${ROOT} .cms-versions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
-/* Button feedback without animation; forced-colors keeps the native system focus outline. */
+#${ROOT} :is(button, select, summary, input):focus-visible { outline: 2px solid ${C.focus}; outline-offset: 2px; }
 @media (hover: hover) {
-  #${ROOT} :is(button, summary):not(:disabled):hover { background: ${C.surfaceAlt}; }
+  #${ROOT} button:enabled:hover { filter: brightness(0.92); }
+  #${ROOT} summary:hover { color: ${C.text}; }
 }
-#${ROOT} :is(button, summary):not(:disabled):active { background: ${C.surfaceAlt}; }
 @media (forced-colors: active) {
-  #${ROOT} :is(button, select, summary, input[type="checkbox"], input[type="radio"], a):focus-visible {
-    outline: 3px solid CanvasText;
-    outline-offset: 2px;
-  }
-}
-/* Minimum 24px targets (WCAG 2.5.8); bump to 48px on coarse pointers (WCAG 2.5.5). */
-#${ROOT} :is(button, select, summary, label:has(input[type="checkbox"]), label:has(input[type="radio"])) {
-  min-block-size: 24px;
-  min-inline-size: 24px;
+  #${ROOT} :is(button, select, summary, input):focus-visible { outline-color: CanvasText; }
 }
 @media (pointer: coarse) {
-  #${ROOT} :is(button, select, summary, label:has(input[type="checkbox"]), label:has(input[type="radio"])) {
-    min-block-size: 48px;
-    min-inline-size: 48px;
-  }
+  #${ROOT} :is(button, select, summary, .cms-choice) { min-block-size: 3rem; box-sizing: border-box; }
 }
 `
-
     // One consistent line-icon set: 1.8 stroke, currentColor, round caps/joins, no fills.
     const ICONS = {
-      route: ['M4 6h6a4 4 0 0 1 4 4v4', ['M17 12l-3 3 3 3'], 'M3 6a1 1 0 1 0 2 0 1 1 0 1 0-2 0'],
       model: ['M12 3l7 4v10l-7 4-7-4V7z', 'M12 12l7-4', 'M12 12v9', 'M12 12L5 8'],
       session: ['M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8l-4 4z'],
       users: ['M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M3 20a5 5 0 0 1 10 0', 'M16 5a3 3 0 0 1 0 6', 'M17.5 14a5 5 0 0 1 3.5 6'],
-      spark: ['M12 3l1.8 4.9L19 9.7l-4.4 3 .7 5.3L12 15.6 8.7 18l.7-5.3L5 9.7l5.2-1.8z'],
       save: ['M5 4h11l3 3v13H5z', 'M8 4v5h7V4', 'M8 20v-6h8v6'],
       reset: ['M4 10a8 8 0 1 1 2.3 6', 'M4 5v5h5'],
       check: ['M5 12.5l4.5 4.5L19 7'],
       info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 11v5', 'M12 8h.01'],
       refresh: ['M20 11a8 8 0 1 0-.7 4.5', 'M20 5v6h-6'],
-      arrow: ['M5 12h13', 'M13 7l5 5-5 5'],
       copy: ['M9 9h10v10H9z', 'M5 15V5h10'],
       download: ['M12 4v10', 'M7 11l5 5 5-5', 'M5 20h14'],
     }
@@ -379,26 +322,22 @@ window.__ModuleLoader__.load({
       const mode = live || 'polite'
       const base = { role: mode === 'assertive' ? 'alert' : 'status', 'aria-live': mode }
       const idle = { margin: 0, padding: 0, blockSize: 0, minBlockSize: 0, overflow: 'hidden', border: 0, background: 'transparent' }
-      return h('div', Object.assign({}, base, { style: text ? Object.assign({}, S.note, error ? S.noteError : ok ? S.noteOk : {}) : idle }),
+      return h('div', { ...base, className: text ? undefined : 'cms-idle',
+        style: text ? Object.assign({}, S.note, error ? S.noteError : ok ? S.noteOk : {}) : idle },
         text ? h(React.Fragment, null,
           icon ? h('span', {
             style: error ? { color: C.error, display: 'inline-flex' } : ok ? { color: C.ok, display: 'inline-flex' } : { color: C.muted, display: 'inline-flex' },
           }, h(Icon, { name: icon, size: 16 })) : null,
           h('div', { style: { minWidth: 0, flex: '1 1 auto' } }, text)) : null)
     }
-    // Card renders a heading (h3) instead of an aria-label region, giving a clean h2→h3 outline.
-    // Its body absorbs the height a stretched grid row gives the card, so an action footer can rest
-    // on the bottom edge; a card in a row of its own keeps its natural height.
-    function Card({ title, hint, tag, feature, icon, headingLevel, children }) {
-      const hn = headingLevel || 'h3'
-      return h('section', { style: Object.assign({}, S.card, feature ? S.cardFeature : {}) },
-        h('div', { style: S.cardBody },
-          h('div', { style: S.headRow },
-            icon ? h('span', { style: { color: C.muted, display: 'inline-flex' } }, h(Icon, { name: icon, size: 18 })) : null,
-            h(hn, { style: S.heading, className: 'cms-card-heading' }, title),
-            tag ? h('span', { style: S.tag }, tag) : null),
-          hint ? h('p', { style: S.hint, className: 'cms-hint' }, hint) : null,
-          children))
+    function Card({ title, titleId, hint, icon, headingLevel = 'h3', children }) {
+      return h('section', { className: 'cms-card cms-stack' },
+        h('header', { className: 'cms-card-header' },
+          h('div', { className: 'cms-card-title' },
+            h(Icon, { name: icon }),
+            h(headingLevel, { id: titleId, style: headingLevel === 'h2' ? S.sectionHeading : S.heading }, title)),
+          hint ? h('p', { style: S.hint }, hint) : null),
+        h('div', { className: 'cms-stack' }, children))
     }
     function Option({ children, ...props }) {
       return h('option', Object.assign({}, props, { style: { color: C.text, background: C.surface } }), children)
@@ -408,22 +347,20 @@ window.__ModuleLoader__.load({
       const id = useId()
       return h('div', { style: S.field },
         h('label', { htmlFor: id }, label),
-        h('select', { id, ref: selectRef, value, disabled, onChange: e => onChange(e.target.value), style: S.select,
+        h('select', { id, ref: selectRef, value, disabled, onChange: e => onChange(e.target.value), className: 'cms-select', style: S.select,
           'aria-invalid': invalid ? 'true' : undefined, 'aria-describedby': describedBy },
           children))
     })
-    // Native switch keeps the checkbox (enlarged, accentColor) with an explicit htmlFor label.
-    function Toggle({ label, checked, disabled, onChange, describedBy }) {
+    function Toggle({ label, checked, disabled, onChange }) {
       const id = useId()
-      return h('div', null,
-        h('input', { id, type: 'checkbox', role: 'switch', 'aria-checked': checked, checked, disabled,
-          onChange: e => onChange(e.target.checked), style: Object.assign({}, S.checkbox, disabled ? S.disabled : {}),
-          'aria-describedby': describedBy }),
-        h('label', { htmlFor: id, style: S.switchLabel }, label))
+      return h('label', { htmlFor: id, className: 'cms-choice', style: Object.assign({}, S.choice, disabled ? S.disabled : {}) },
+        h('input', { id, type: 'checkbox', checked, disabled, style: S.input,
+          onChange: e => onChange(e.target.checked) }),
+        h('span', null, label))
     }
     function Details({ summary, children }) {
       return h('details', { style: S.details }, h('summary', { style: S.summary }, summary),
-        h('div', { style: S.detailsBody, className: 'cms-details-body' }, children))
+        h('div', { style: S.detailsBody }, children))
     }
     // Native radiogroup (fieldset/legend) for the 3-way exclusive session mode. The name is derived
     // from useId so multiple instances never share a radio group; no auto-submit on change.
@@ -435,13 +372,14 @@ window.__ModuleLoader__.load({
         h('legend', { style: S.radioLegend }, t('mode')),
         MODES.map(mode => {
           const inputId = idBase + '-' + mode
-          const hintId = idBase + '-' + mode + '-hint'
-          return h('div', { key: mode, style: S.radioRow },
+          const labelId = inputId + '-label'
+          const hintId = inputId + '-hint'
+          return h('label', { key: mode, htmlFor: inputId, className: 'cms-choice', style: S.choice },
             h('input', { id: inputId, type: 'radio', name, value: mode, checked: value === mode, disabled,
-              onChange: () => onChange(mode), style: S.radio, 'aria-describedby': hintId }),
-            h('label', { htmlFor: inputId, style: S.radioLabel },
-              h('span', null, t(mode)),
-              h('span', { id: hintId, style: S.radioHint, className: 'cms-radio-hint' },
+              onChange: () => onChange(mode), style: S.input, 'aria-labelledby': labelId, 'aria-describedby': hintId }),
+            h('span', { className: 'cms-radio-copy' },
+              h('span', { id: labelId }, t(mode)),
+              h('span', { id: hintId, style: S.hint },
                 t(mode === 'route' ? 'routeHint' : mode === 'parent' ? 'parentHint' : 'inheritHint'))))
         }))
     }
@@ -451,7 +389,7 @@ window.__ModuleLoader__.load({
       const hasRoute = !!(value.provider || value.model)
       return h(React.Fragment, null,
         h(Select, { label, value: hasRoute ? selected : '', disabled, onChange: key => onChange(routeFromKey(key)),
-          invalid, describedBy, selectRef },
+          invalid, describedBy, ref: selectRef },
           h(Option, { value: '', disabled: true }, t('choose')),
           hasRoute && !known ? h(Option, { value: selected }, value.provider + '/' + value.model + ' · ' + t('stale')) : null,
           catalog.groups.map(g => h('optgroup', { key: g.id, label: g.name || g.id }, (g.models || []).map(m =>
@@ -468,18 +406,25 @@ window.__ModuleLoader__.load({
     }
     // Option values use the full id; the visible label leads with the title and marks the current session.
     function SessionPicker({ t, rows, value, disabled, onChange, teams }) {
-      const present = rows.some(row => row.id === value)
+      const selected = rows.find(row => row.id === value)
+      const titleCounts = new Map()
+      for (const row of rows) titleCounts.set(row.title, (titleCounts.get(row.title) || 0) + 1)
       return h(React.Fragment, null,
         h(Select, { label: t(teams ? 'teamsTarget' : 'target'), value: value || '', disabled: disabled || !rows.length, onChange },
           !value ? h(Option, { value: '' }, t('noSession')) : null,
-          value && !present ? h(Option, { value }, value + ' · ' + t('stale')) : null,
-          rows.map(row => h(Option, { key: row.id, value: row.id }, row.title + (row.current ? ' · ' + t('current') : '') + ' · ' + row.id.replace(/^session-/, '').slice(0, 8))),
+          value && !selected ? h(Option, { value }, value + ' · ' + t('stale')) : null,
+          rows.map(row => {
+            const shortId = row.id.replace(/^session-/, '').slice(0, 8)
+            const title = titleCounts.get(row.title) > 1 ? shortId + ' · ' + row.title : row.title
+            return h(Option, { key: row.id, value: row.id }, row.current ? t('current') + ' · ' + title : title)
+          }),
         ),
-        value && !present ? h(Note, { error: true, icon: 'info' }, t('missingSession')) : null,
+        h(SelectedSessionDetails, { t, id: value, title: selected?.title }),
+        value && !selected ? h(Note, { error: true, icon: 'info' }, t('missingSession')) : null,
       )
     }
     // Shows the selected id in a small, secondary collapsible area so same-titled sessions are not confused.
-    function SelectedId({ t, id }) {
+    function SelectedSessionDetails({ t, id, title }) {
       const [copied, setCopied] = useState(false)
       const [copyError, setCopyError] = useState(false)
       const timer = useRef(null)
@@ -503,9 +448,10 @@ window.__ModuleLoader__.load({
         } catch (_) { if (alive.current && currentId.current === id) setCopyError(true) }
       }
       return h(Details, { summary: t('selectedIdLabel') },
+        title ? h('p', { style: S.detailsTitle }, title) : null,
         h('div', { style: S.copyRow },
-          h('code', { style: S.code, className: 'cms-longid' }, id),
-          h('button', { type: 'button', onClick: copy, style: S.copyBtn }, copied ? t('copied') : t('copyId'))),
+          h('code', { style: S.code }, id),
+          h(Button, { onClick: copy }, copied ? t('copied') : t('copyId'))),
         h(LiveNote, { error: true, icon: 'info', text: copyError ? t('copyFailed') : '' }))
     }
     // -------------------------------------------------------------------------
@@ -570,20 +516,20 @@ window.__ModuleLoader__.load({
     function VersionBadge({ t, status }) {
       if (!UPDATE_STATUSES.includes(status)) return null
       return h('span', {
-        style: Object.assign({}, S.tag, { color: updateBadgeColor(status), borderColor: updateBadgeColor(status), fontWeight: 600 }),
+        style: Object.assign({}, S.tag, { color: updateBadgeColor(status) }),
       }, updateBadgeText(t, status))
     }
     function VersionValue({ t, value, placeholder }) {
       const unknown = typeof value !== 'string' || !value
-      return h('code', {
-        style: Object.assign({}, S.code, { flex: '0 0 auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }),
-      }, unknown ? (placeholder || t('updateVersionUnknown')) : value)
+      return unknown
+        ? h('span', { style: S.hint }, placeholder || t('updateVersionUnknown'))
+        : h('code', { style: S.code }, value)
     }
     // One read-only label/value line used for current/latest/checked-at/status rows.
     function VersionRow({ label, children }) {
-      return h('div', { style: S.versionRow },
-        h('span', { style: S.versionLabel }, label),
-        h('span', { style: S.versionValue }, children))
+      return h('div', null,
+        h('dt', { style: S.versionLabel }, label),
+        h('dd', { style: S.versionValue }, children))
     }
     // Inline (non-modal) confirmation. Focus moves to the confirm button on open;
     // Escape cancels, and the group is labelled by the question for screen readers.
@@ -630,7 +576,7 @@ window.__ModuleLoader__.load({
       return h('div', null,
         h('div', { style: S.copyRow },
           h('code', { style: Object.assign({}, S.code, { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }) }, command),
-          h('button', { type: 'button', onClick: copy, style: S.copyBtn }, copied ? t('copied') : t('copyCommand'))),
+          h('button', { type: 'button', onClick: copy, style: S.button }, copied ? t('copied') : t('copyCommand'))),
         h(LiveNote, { error: true, icon: 'info', text: copyError ? t('copyFailedManual') : '' }))
     }
 
@@ -643,6 +589,14 @@ window.__ModuleLoader__.load({
       const alive = useRef(false)
       const controller = useRef(null)
       const mounted = useRef(false)
+      const installButton = useRef(null)
+      const restoreInstallFocus = useRef(false)
+      useEffect(() => {
+        if (!confirming && restoreInstallFocus.current) {
+          restoreInstallFocus.current = false
+          installButton.current?.focus()
+        }
+      }, [confirming])
 
       const abortCurrent = () => {
         if (controller.current) { try { controller.current.abort() } catch (_) {} controller.current = null }
@@ -731,6 +685,8 @@ window.__ModuleLoader__.load({
       const data = state.data || {}
       const status = state.phase === 'ok' ? (UPDATE_STATUSES.includes(data.status) ? data.status : 'error') : null
       const busyCheck = state.phase === 'loading'
+      const checkFailed = state.phase === 'error' || status === 'error'
+      const checkError = checkFailed ? state.error || data.reason || t('updateCheckFailed') : ''
       const migrate = state.phase === 'ok' && isLinkKind(data.installedSource)
       const canInstall = state.phase === 'ok' && data.canSelfUpdate === true && data.status === 'ready' && typeof data.spec === 'string' && !!data.latestVersion
       const installDisabled = installing || busyCheck
@@ -750,26 +706,24 @@ window.__ModuleLoader__.load({
       })()
       const outcomeError = isApplySettled(outcome) && outcome.application !== 'applied' && outcome.application !== 'restart-required'
 
-      return h(Card, { title: t('updateTitle'), hint: t('updateHint'), icon: 'download', headingLevel: 'h3' },
-        h('div', { 'aria-busy': installing ? 'true' : undefined },
-          busyCheck ? h(Note, { icon: 'refresh' }, t('updateChecking')) : null,
-
+      return h(Card, { title: t('updateTitle'), hint: t('updateHint'), icon: 'download', headingLevel: 'h2' },
+        h('div', { className: 'cms-stack', 'aria-busy': installing ? 'true' : undefined },
           // While checking for the first time we still show placeholders so the layout is stable.
-          h('div', { style: S.versionBlock },
+          h('dl', { style: S.versionBlock, className: 'cms-versions' },
             h(VersionRow, { label: t('updateCurrentVersion') },
               h(VersionValue, { t, value: busyCheck ? null : data.currentVersion, placeholder: busyCheck ? t('updateVersionPending') : t('updateVersionUnknown') })),
             h(VersionRow, { label: t('updateLatestVersion') },
               h(VersionValue, { t, value: busyCheck ? null : data.latestVersion, placeholder: busyCheck ? t('updateVersionPending') : t('updateVersionUnknown') })),
             h(VersionRow, { label: t('updateStatus') },
-              busyCheck ? h('span', { style: S.versionValue, className: 'cms-hint' }, t('updateCheckingShort'))
+              busyCheck ? h('span', { style: S.hint }, t('updateCheckingShort'))
                 : status ? h(VersionBadge, { t, status })
-                : h('span', { style: S.versionValue, className: 'cms-hint' }, t('updateBadgeError'))),
+                : h('span', { style: S.hint }, t('updateBadgeError'))),
             h(VersionRow, { label: t('updateCheckedAt') },
-              h('span', { style: S.versionValue, className: 'cms-hint' },
+              h('span', { style: S.hint },
                 data.checkedAt ? formatCheckedAt(data.checkedAt) : t('updateCheckedNever')))),
 
           // Failure: persistent, readable, with an explicit retry (polite live region).
-          state.phase === 'error' ? h(LiveNote, { error: true, icon: 'info', text: state.error || t('updateCheckFailed'), live: 'polite' }) : null,
+          h(LiveNote, { error: true, icon: 'info', text: checkError }),
 
           // The plugin is not installed through the manager at all: explain rather than
           // reporting a bare package name the user never chose.
@@ -778,7 +732,7 @@ window.__ModuleLoader__.load({
 
           // Ready: show the (truncated) release notes of the newer version.
           state.phase === 'ok' && status === 'ready' && data.notes
-            ? h('p', { style: S.updateNotes, className: 'cms-hint', title: data.notes }, t('updateNotes') + truncateNotes(data.notes, 180))
+            ? h('p', { style: S.updateNotes, title: data.notes }, t('updateNotes') + truncateNotes(data.notes, 180))
             : null,
 
           // Ahead / forward: the local copy is newer than the published one, or the two
@@ -794,16 +748,14 @@ window.__ModuleLoader__.load({
           // Migration path: a link/path install cannot be upgraded in place. One-time note
           // plus the copyable install command; deliberately no install button.
           migrate
-            ? h('div', { style: S.migrateBox },
+            ? h('div', { className: 'cms-stack' },
               h(Note, { icon: 'info' }, t('updateMigrateIntro')),
               h(CopyCommand, { t, command: MIGRATE_COMMAND }),
-              h('p', { style: S.hint, className: 'cms-hint' }, t('updateMigrateAfter')))
+              h('p', { style: S.hint }, t('updateMigrateAfter')))
             : null,
 
-          // The action row: install (with inline confirm), or the check/retry button.
-          // One action row. It sits at the card's bottom because the card body grows, so the page
-          // never ends with a half-empty card above a large gap.
-          h('div', { style: S.actionRow },
+          // Keep install confirmation and retry next to the version summary.
+          h('div', { style: S.row },
             canInstall
               ? (confirming
                 ? h(InlineConfirm, {
@@ -812,22 +764,20 @@ window.__ModuleLoader__.load({
                   confirmLabel: installing ? t('updateInstalling') : t('updateConfirmInstall'),
                   busy: installDisabled,
                   onConfirm: () => { void runApply() },
-                  onCancel: () => setConfirming(false),
+                  onCancel: () => { restoreInstallFocus.current = true; setConfirming(false) },
                 })
-                : h('button', { type: 'button', disabled: installDisabled, 'aria-busy': installing ? 'true' : undefined,
+                : h('button', { ref: installButton, type: 'button', disabled: installDisabled, 'aria-busy': installing ? 'true' : undefined,
                   onClick: () => setConfirming(true),
                   style: Object.assign({}, S.button, S.primary, installDisabled ? S.disabled : {}) },
                   h(Icon, { name: 'download', size: 16 }),
                   h('span', null, t('updateInstallButton').replace('{version}', String(data.latestVersion)))))
               : null,
             h(Button, { disabled: installDisabled, onClick: () => { void runCheck() }, icon: 'refresh' },
-              installing ? t('updateInstalling') : busyCheck ? t('updateCheckingShort') : (state.phase === 'error' ? t('updateRetry') : t('updateRecheck'))),
+              installing ? t('updateInstalling') : busyCheck ? t('updateCheckingShort') : (checkFailed ? t('updateRetry') : t('updateRecheck'))),
           ),
 
-          // Result of an install attempt: success (polite), failure (assertive but single line).
-          isApplySettled(outcome)
-            ? h(LiveNote, { ok: !outcomeError, error: outcomeError, icon: outcomeError ? 'info' : 'check', text: outcomeText, live: outcomeError ? 'assertive' : 'polite' })
-            : null,
+          h(LiveNote, { ok: !installing && !outcomeError, error: outcomeError,
+            icon: installing || outcomeError ? 'info' : 'check', text: installing ? t('updateInstalling') : outcomeText }),
         ),
       )
     }
@@ -887,7 +837,7 @@ window.__ModuleLoader__.load({
         h(LiveNote, { error: true, icon: 'info', text: editor.error }),
         h(LiveNote, { ok: true, icon: 'check', text: editor.message }),
         h(LiveNote, { icon: 'info', text: editor.warning }),
-        h('div', { style: S.footer },
+        h('div', { style: S.row },
           h('button', { type: 'submit', disabled: disabled || editor.saving || !editor.dirty,
             style: Object.assign({}, S.button, S.primary, disabled || editor.saving || !editor.dirty ? S.disabled : {}) },
             h(Icon, { name: 'save', size: 16 }), h('span', null, t(editor.saving ? 'saving' : 'save'))),
@@ -896,26 +846,13 @@ window.__ModuleLoader__.load({
         editor.conflict ? h(Button, { disabled: disabled || editor.saving, onClick: editor.rebase, icon: 'reset' }, t('rebase')) : null,
       )
     }
-    function RolesOverview({ t }) {
-      return h('div', { style: S.roles, className: 'cms-roles' },
-        h('div', { style: S.roleBox },
-          h('span', { style: S.roleIcon }, h(Icon, { name: 'route', size: 20 })),
-          h('div', { style: { minWidth: 0 } },
-            h('p', { style: S.roleName }, t('roleMain')),
-            h('p', { style: S.roleHint, className: 'cms-role-hint' }, t('roleMainHint')))),
-        h('div', { style: S.roleBox },
-          h('span', { style: S.roleIcon }, h(Icon, { name: 'spark', size: 20 })),
-          h('div', { style: { minWidth: 0 } },
-            h('p', { style: S.roleName }, t('roleWorker')),
-            h('p', { style: S.roleHint, className: 'cms-role-hint' }, t('roleWorkerHint')))),
-      )
-    }
-    function GlobalSection({ ctx, scope, snap, t, catalog, blocked, setBusy }) {
+    function GlobalSection({ scope, snap, t, catalog, blocked, setBusy }) {
       const editor = useEditor(scope, snap, defaultValue, setBusy, t)
       const value = editor.value
       const [invalid, setInvalid] = useState(false)
       const modelRef = useRef(null)
       const modelHelpId = useId()
+      const titleId = useId()
       const submit = () => {
         if (blocked) return
         if (value.routingEnabled && !containsRoute(catalog, { provider: value.defaultProvider, model: value.defaultModel })) {
@@ -927,15 +864,15 @@ window.__ModuleLoader__.load({
         void editor.save(Object.keys(value).map(field => ({ op: 'set', path: [field], value: value[field] })))
       }
       const changeRoute = route => { setInvalid(false); editor.change(Object.assign({}, value, { defaultProvider: route.provider, defaultModel: route.model })) }
-      return h(Card, { title: t('globalTitle'), hint: t('globalHint'), icon: 'model', headingLevel: 'h3' },
-        h('form', { onSubmit: e => { e.preventDefault(); submit() }, noValidate: true },
+      return h(Card, { title: t('globalTitle'), titleId, hint: t('globalHint'), icon: 'model', headingLevel: 'h3' },
+        h('form', { className: 'cms-stack', 'aria-labelledby': titleId, onSubmit: e => { e.preventDefault(); submit() }, noValidate: true },
           h(Toggle, { label: t('enable'), checked: value.routingEnabled, disabled: blocked,
             onChange: enabled => { setInvalid(false); editor.change(Object.assign({}, value, { routingEnabled: enabled })) } }),
           value.routingEnabled
             ? h(ModelPicker, { t, catalog, label: t('model'), value: { provider: value.defaultProvider, model: value.defaultModel }, disabled: blocked,
               onChange: changeRoute, invalid, describedBy: modelHelpId, selectRef: modelRef })
-            : h('p', { style: S.hint, className: 'cms-hint' }, t('off')),
-          h('span', { id: modelHelpId, style: invalid ? { fontSize: 12, color: C.error, display: 'block' } : { display: 'none' } }, invalid ? t('needModel') : ''),
+            : h('p', { style: S.hint }, t('off')),
+          h('span', { id: modelHelpId, className: 'cms-field-error', hidden: !invalid }, invalid ? t('needModel') : ''),
           h(EditorFooter, { editor, t, disabled: blocked }),
         ),
       )
@@ -950,6 +887,7 @@ window.__ModuleLoader__.load({
       const modelRef = useRef(null)
       const modeHelpId = useId()
       const modelErrId = useId()
+      const titleId = useId()
       const change = next => { setChosen(activeId); setInvalid(false); editor.change(next) }
       const submit = () => {
         if (blocked || !present) return
@@ -965,27 +903,27 @@ window.__ModuleLoader__.load({
       const global = defaultValue(snap.value || {})
       const behavior = saved.mode === 'route' ? saved.provider + '/' + saved.model
         : saved.mode === 'parent' || !global.routingEnabled ? t('parent') : global.defaultProvider + '/' + global.defaultModel
-      return h(Card, { title: t('sessionTitle'), hint: t('sessionHint'), tag: t('optional'), feature: true, icon: 'session', headingLevel: 'h3' },
+      return h(Card, { title: t('sessionTitle'), titleId, hint: t('sessionHint'), icon: 'session', headingLevel: 'h3' },
         sessionsLoading ? h(Note, { icon: 'info' }, t('sessionLoading')) : null,
         !rows.length && !activeId ? h(Note, { icon: 'info' }, t('noSession')) : null,
         h(SessionPicker, { t, rows, value: activeId, disabled: blocked || editor.dirty, onChange: id => { setChosen(id); editor.discard(); setInvalid(false) } }),
-        h(SelectedId, { t, id: activeId }),
-        editor.dirty ? h('p', { style: S.hint, className: 'cms-hint' }, t('switchProtected')) : null,
-        activeId ? h('form', { onSubmit: e => { e.preventDefault(); submit() }, noValidate: true },
-          h('p', { style: S.effective, className: 'cms-effective' }, t('effective') + behavior),
+        editor.dirty ? h('p', { style: S.hint }, t('switchProtected')) : null,
+        activeId ? h('form', { className: 'cms-stack', 'aria-labelledby': titleId, onSubmit: e => { e.preventDefault(); submit() }, noValidate: true },
+          h('p', { style: S.effective }, t('effective'), h('strong', { className: 'cms-saved' }, behavior)),
           h(ModeRadio, { t, value: value.mode, disabled: blocked || !present, onChange: mode => change({ mode, provider: mode === 'route' ? value.provider : '', model: mode === 'route' ? value.model : '' }), describedBy: modeHelpId }),
           h('span', { id: modeHelpId, style: { display: 'none' } }, t('modeHelp')),
           value.mode === 'route' ? h(ModelPicker, { t, catalog, label: t('sessionModel'), value, disabled: blocked || !present,
             onChange: route => { setInvalid(false); change(Object.assign({}, route, { mode: 'route' })) }, invalid, describedBy: modelErrId, selectRef: modelRef }) : null,
-          h('span', { id: modelErrId, style: invalid ? { fontSize: 12, color: C.error, display: 'block' } : { display: 'none' } }, invalid ? t('needModel') : ''),
+          h('span', { id: modelErrId, className: 'cms-field-error', hidden: !invalid }, invalid ? t('needModel') : ''),
           h(EditorFooter, { editor, t, disabled: blocked || !present }),
         ) : null,
       )
     }
     function ForceSection({ scope, snap, t, blocked, setBusy }) {
+      const titleId = useId()
       const editor = useEditor(scope, snap, value => value.forceAgentTeams === true, setBusy, t)
-      return h(Card, { title: t('forceTitle'), hint: t('forceHint'), icon: 'users', headingLevel: 'h3' },
-        h('form', { onSubmit: e => { e.preventDefault(); if (blocked) return; void editor.save([{ op: 'set', path: ['forceAgentTeams'], value: editor.value }]) } },
+      return h(Card, { title: t('forceTitle'), titleId, hint: t('forceHint'), icon: 'users', headingLevel: 'h3' },
+        h('form', { className: 'cms-stack', 'aria-labelledby': titleId, onSubmit: e => { e.preventDefault(); if (blocked) return; void editor.save([{ op: 'set', path: ['forceAgentTeams'], value: editor.value }]) } },
           h(Toggle, { label: t('forceLabel'), checked: editor.value, disabled: blocked, onChange: editor.change }),
           h(EditorFooter, { editor, t, disabled: blocked }),
         ),
@@ -1013,13 +951,11 @@ window.__ModuleLoader__.load({
       }
       return h(Card, { title: t('teamsExistingTitle'), hint: t('teamsHint'), icon: 'users', headingLevel: 'h3' },
         h(SessionPicker, { t, teams: true, rows, value: activeId, disabled: blocked || busy, onChange: id => { setChosen(id); setResult(null) } }),
-        h(SelectedId, { t, id: activeId }),
-        h('p', { style: S.hint, className: 'cms-hint' }, t('teamsUnknown')),
         h('div', { style: S.row },
           h(Button, { primary: true, disabled: blocked || busy || !present, onClick: () => { void run(true) }, icon: 'check' }, t('teamsEnable')),
           h(Button, { disabled: blocked || busy || !present, onClick: () => { void run(false) }, icon: 'reset' }, t('teamsDisable'))),
         busy ? h(Note, { icon: 'info' }, t('working')) : null,
-        result && result.id === activeId ? h(LiveNote, { error: result.error, ok: !result.error, icon: result.error ? 'info' : 'check', text: result.text + ' (' + result.id + ')', live: result.error ? 'assertive' : 'polite' }) : null,
+        result && result.id === activeId ? h(LiveNote, { error: result.error, ok: !result.error, icon: result.error ? 'info' : 'check', text: result.text, live: result.error ? 'assertive' : 'polite' }) : null,
       )
     }
     function Panel({ ctx, t, useSessions }) {
@@ -1040,7 +976,7 @@ window.__ModuleLoader__.load({
       const refreshLock = useRef(false)
       const alive = useRef(true)
       const refreshTimer = useRef(null)
-      const gridMainId = useId()
+      const modelsTitleId = useId()
       const clearRefreshTimer = () => { if (refreshTimer.current) { clearTimeout(refreshTimer.current); refreshTimer.current = null } }
       useEffect(() => () => { alive.current = false; clearRefreshTimer() }, [])
       // The official list refresh returns void even after a failed RPC. Verify the real
@@ -1113,42 +1049,30 @@ window.__ModuleLoader__.load({
         h('div', { style: S.inner, className: 'cms-inner' },
           h('header', { style: S.header },
             h('div', { style: S.headerText },
-              h('h1', { style: S.title, className: 'cms-title' }, t('panelTitle')),
-              h('p', { style: S.sub, className: 'cms-sub' }, t('intro'))),
+              h('h1', { style: S.title }, t('panelTitle')),
+              h('p', { style: S.sub }, t('intro'))),
             h('button', { type: 'button', title: t('refresh'), 'aria-label': t('refresh'),
               disabled: refreshing || busyCount > 0, onClick: () => { void refresh(true) },
-              style: Object.assign({}, S.iconBtn, refreshing || busyCount > 0 ? S.disabled : {}) },
+              style: Object.assign({}, S.button, refreshing || busyCount > 0 ? S.disabled : {}) },
               h(Icon, { name: 'refresh', size: 16 }),
               h('span', null, t(refreshing ? 'refreshing' : 'refreshAction')))),
-          h('h2', { style: S.groupTitle }, t('rolesTitle')),
-          h(RolesOverview, { t }),
-          h(LiveNote, { ok: true, icon: 'check', text: refreshMessage }),
-          h(LiveNote, { error: true, icon: 'info', text: refreshError || (availability.present && availability.mirrorSnapshot === mirrorSnap ? '' : mirrorSnap.error) }),
-          h(Note, { icon: 'info' }, snap.status === 'loading' ? t('configLoading') : missing ? t('unavailable') : !writable ? t('readOnly') : ''),
-          snap.value && snap.value.sessionRoutesJson && snap.value.sessionRoutesJson !== '{}' ? h(Note, { icon: 'info' }, t('legacy')) : null,
-          h(Details, { summary: t('details') }, t('scopeHint')),
-          h('div', { style: Object.assign({}, S.grid, { marginTop: 16 }), className: 'cms-grid', id: gridMainId },
-            h('section', { style: S.group },
-              h('h2', { style: S.groupTitle }, t('colSession')),
-              h('div', { style: S.cards },
-                h(SessionSection, { scope, snap, t, catalog, rows, sessionsLoading: !sessions || sessions.phase === 'pending', blocked, setBusy: busy }))),
-            h('section', { style: S.group },
-              h('h2', { style: S.groupTitle }, t('colGlobal')),
-              h('div', { style: S.cards },
-                h(GlobalSection, { ctx, scope, snap, t, catalog, blocked, setBusy: busy })))),
-          h('section', { style: Object.assign({}, S.group, { marginTop: 16 }) },
+          h('div', { className: 'cms-stack cms-feedback' },
+            h(LiveNote, { ok: true, icon: 'check', text: refreshMessage }),
+            h(LiveNote, { error: true, icon: 'info', text: refreshError || (availability.present && availability.mirrorSnapshot === mirrorSnap ? '' : mirrorSnap.error) }),
+            h(Note, { icon: 'info' }, snap.status === 'loading' ? t('configLoading') : missing ? t('unavailable') : !writable ? t('readOnly') : ''),
+            snap.value && snap.value.sessionRoutesJson && snap.value.sessionRoutesJson !== '{}' ? h(Note, { icon: 'info' }, t('legacy')) : null),
+          h('section', { 'aria-labelledby': modelsTitleId },
+            h('h2', { style: S.groupTitle, id: modelsTitleId }, t('workerSettings')),
+            h('div', { style: S.card },
+              h(SessionSection, { scope, snap, t, catalog, rows, sessionsLoading: !sessions || sessions.phase === 'pending', blocked, setBusy: busy }),
+              h(GlobalSection, { scope, snap, t, catalog, blocked, setBusy: busy }))),
+          h('section', null,
             h('h2', { style: S.groupTitle }, t('teamsTitle')),
-            // `cms-grid` makes this row follow the same container-query columns as the model row;
-            // the columns stretch so two cards of different heights end on one line.
-            h('div', { style: S.grid, className: 'cms-grid' },
+            h('div', { style: S.card },
               h(ForceSection, { scope, snap, t, blocked, setBusy: busy }),
               h(TeamsSection, { ctx, t, rows, blocked: refreshing || busyCount > 0, setBusy: busy }))),
-          // Updates are independent of the configuration forms: they stay usable while a
-          // draft is dirty, and the panel's own refresh never drives this block. A lone card
-          // keeps its natural height, so it must not inherit the stretched column wrapper.
-          h('section', { style: Object.assign({}, S.group, { marginTop: 16 }) },
-            h('h2', { style: S.groupTitle }, t('updateTitle')),
-            h('div', { style: S.sectionStack }, h(UpdateSection, { t }))),
+          h('div', { style: S.card }, h(UpdateSection, { t })),
+          h(Details, { summary: t('details') }, t('scopeHint')),
         ))
     }
     function PanelIcon(props) {
