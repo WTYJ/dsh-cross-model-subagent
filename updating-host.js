@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { REPOSITORY, buildGitSpec, checkForUpdate, selfUpdateBlocker } from './updating.js'
+import { readGitRelease } from './git-update.js'
 
 export const PACKAGE_NAME = '@wtyj/dsh-cross-model-subagent'
 
@@ -75,7 +76,7 @@ export async function updateStatus(manager, names = [PACKAGE_NAME], { version, f
   const source = typeof bundle.source === 'string' ? bundle.source : undefined
   const dependency = source?.startsWith(prefix) ? source.slice(prefix.length) : source
   const installedSource = { kind: dependency ? sourceKind(dependency) : 'unknown', spec: dependency }
-  const check = await checkForUpdate({ fetchImpl, signal, currentVersion, installedSource, timeoutMs, cache, force })
+  const check = await checkForUpdate({ fetchImpl, signal, currentVersion, installedSource, timeoutMs, cache, force, readGit: readGitRelease })
   return {
     ok: true,
     name,

@@ -49,6 +49,23 @@ test('a rate-limited response becomes a wait, not a generic failure', async () =
   assert.equal(result.cacheable, undefined, 'a failure must not be cached')
 })
 
+test('GitHub throttling falls back to the version and commit fetched together by Git', async () => {
+  const result = await checkForUpdate({
+    currentVersion: '0.1.0',
+    installedSource: gitInstall,
+    fetchImpl: countingFetch('0.2.0', { rateLimited: true }),
+    readGit: async () => ({
+      sha: SHA,
+      manifest: JSON.stringify({ version: '0.2.0', dsh: { bundle: { patch: './cordis.patch.yml' } } }),
+    }),
+  })
+  assert.equal(result.status, 'ready')
+  assert.equal(result.latestVersion, '0.2.0')
+  assert.equal(result.spec, GOOD_SPEC)
+  assert.equal(result.retryAfterSeconds, undefined)
+  assert.equal(result.cacheable, true)
+})
+
 test('only a completed comparison is marked cacheable', async () => {
   const ok = await checkForUpdate({ currentVersion: '0.1.0', installedSource: gitInstall, fetchImpl: countingFetch('0.2.0') })
   assert.equal(ok.status, 'ready')

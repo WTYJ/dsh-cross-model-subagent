@@ -1,6 +1,6 @@
 {
   "name": "@wtyj/dsh-cross-model-subagent",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "repository": { "type": "git", "url": "git+https://github.com/WTYJ/dsh-cross-model-subagent.git" },
@@ -22,6 +22,7 @@
     "installed.js",
     "routing.js",
     "updating.js",
+    "git-update.js",
     "updating-host.js",
     "updating-entry.js",
     "client.js",

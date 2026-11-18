@@ -201,7 +201,7 @@ function cachedResult(cache, currentVersion) {
  * @param options.force skip the cache (an explicit "check again").
  * @returns the same result shape as before, plus `cacheable` when it may be stored.
  */
-export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion, installedSource, timeoutMs = 8000, cache, force = false } = {}) {
+export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion, installedSource, timeoutMs = 8000, cache, force = false, readGit } = {}) {
   const installed = normalizeInstalled(installedSource)
   if (!force) {
     const reused = cachedResult(cache, currentVersion)
@@ -240,6 +240,29 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
     return result
   }
 
+  async function onRateLimit(reason) {
+    if (!readGit || signal?.aborted) return fail('rate-limited', reason)
+    const attempt = { url: REPOSITORY.git }
+    fetchAttempts.push(attempt)
+    try {
+      const deadline = AbortSignal.timeout(timeoutMs)
+      const release = await readGit(signal ? AbortSignal.any([signal, deadline]) : deadline)
+      if (!/^[0-9a-f]{40}$/i.test(release.sha)) throw new Error('Invalid Git commit')
+      const version = readManifestVersion(release.manifest)
+      if (version === null) throw new Error('Invalid bundle manifest')
+      result.latestCommit = release.sha.toLowerCase()
+      result.latestVersion = version
+      result.publishedAt = release.date ?? null
+      result.notes = sanitizeNotes(release.notes)
+      result.cacheable = true
+      delete result.retryAfterSeconds
+      return finish(currentVersion, version, result.latestCommit, installed, result)
+    } catch {
+      attempt.problem = 'git-lookup-failed'
+      return fail('rate-limited', reason)
+    }
+  }
+
   let commitSha = null
 
   // 1. Latest commit on the default branch.
@@ -266,7 +289,7 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
       commitAttempt.problem = `HTTP ${res.status}`
       commitAttempt.retryAfterSeconds = wait
       result.retryAfterSeconds = wait
-      return fail('rate-limited', wait === undefined
+      return onRateLimit(wait === undefined
         ? 'GitHub refused the request because this IP has used its hourly anonymous quota. Try again later; signing in is not required for the update check.'
         : `GitHub refused the request because this IP has used its hourly anonymous quota. Try again in about ${Math.ceil(wait / 60)} minutes.`)
     }
@@ -350,8 +373,11 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
   }
   if (latestVersion === null) {
     const reasons = fetchAttempts.slice(1).map(attempt => `${attempt.url}: ${attempt.problem ?? 'unknown'}`)
-    if (result.retryAfterSeconds !== undefined) {
-      return fail('rate-limited', `GitHub refused the manifest lookup because this IP has used its hourly anonymous quota. Try again in about ${Math.ceil(result.retryAfterSeconds / 60)} minutes.`)
+    if (fetchAttempts.slice(1).some(attempt => attempt.status === 403 || attempt.status === 429)) {
+      const wait = result.retryAfterSeconds
+      return onRateLimit(wait === undefined
+        ? 'GitHub rate-limited the manifest lookup. Try again later.'
+        : `GitHub rate-limited the manifest lookup. Try again in about ${Math.ceil(wait / 60)} minutes.`)
     }
     return fail('manifest-unavailable', `Could not read the published manifest. ${reasons.join('; ')}`)
   }
