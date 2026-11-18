@@ -20,7 +20,7 @@ import {
 
 const SHA = 'a'.repeat(40)
 const OTHER_SHA = 'b'.repeat(40)
-const MANIFEST_URL = 'https://raw.githubusercontent.com/WTYJ/dsh-cross-model-subagent/main/package.json'
+const MANIFEST_URL = `https://raw.githubusercontent.com/WTYJ/dsh-cross-model-subagent/${SHA}/package.json`
 const COMMIT_URL = 'https://api.github.com/repos/WTYJ/dsh-cross-model-subagent/commits/main'
 // The manifest is read from the checked commit first; the raw CDN is the fallback.
 const CONTENTS_URL = `https://api.github.com/repos/WTYJ/dsh-cross-model-subagent/contents/package.json?ref=${SHA}`

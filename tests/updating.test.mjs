@@ -11,7 +11,7 @@ import {
 
 const SHA = 'a'.repeat(40)
 const OTHER_SHA = 'b'.repeat(40)
-const MANIFEST_URL = 'https://raw.githubusercontent.com/WTYJ/dsh-cross-model-subagent/main/package.json'
+const MANIFEST_URL = `https://raw.githubusercontent.com/WTYJ/dsh-cross-model-subagent/${SHA}/package.json`
 const COMMIT_URL = 'https://api.github.com/repos/WTYJ/dsh-cross-model-subagent/commits/main'
 // The manifest is read from the commit's own tree first, so a filtered network never blocks it.
 const CONTENTS_URL = `https://api.github.com/repos/WTYJ/dsh-cross-model-subagent/contents/package.json?ref=${SHA}`
@@ -246,6 +246,29 @@ test('the manifest is read from the checked commit before the raw CDN', async ()
   assert.equal(result.status, 'ready')
   assert.equal(result.latestVersion, '2.1.0')
   assert.equal(result.fetchAttempts[1].url, CONTENTS_URL)
+})
+
+test('the raw CDN fallback uses the checked commit even after main advances', async () => {
+  const fetchManifest = fakeFetch({
+    commit: commitBody(SHA.toUpperCase()),
+    contents: response({ ok: false, status: 403 }),
+    manifest: manifestBody('2.1.0'),
+  })
+  const result = await checkForUpdate({
+    currentVersion: '2.0.0',
+    installedSource: { kind: 'git', spec: REPOSITORY.git },
+    fetchImpl: async url => {
+      if (url === 'https://raw.githubusercontent.com/WTYJ/dsh-cross-model-subagent/main/package.json') {
+        return manifestBody('2.2.0')
+      }
+      return fetchManifest(url)
+    },
+  })
+  assert.equal(result.status, 'ready')
+  assert.equal(result.latestVersion, '2.1.0')
+  assert.equal(result.latestCommit, SHA)
+  assert.equal(result.spec, `${REPOSITORY.git}#${SHA}`)
+  assert.deepEqual(result.fetchAttempts.map(attempt => attempt.url), [COMMIT_URL, CONTENTS_URL, MANIFEST_URL])
 })
 
 test('a commit-tree manifest answers even when the raw CDN is unreachable', async () => {

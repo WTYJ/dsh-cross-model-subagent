@@ -70,6 +70,10 @@ function readBody(req) {
 }
 
 export function apply(ctx, config = {}) {
+  return mountUpdater(ctx, config)
+}
+
+export function mountUpdater(ctx, config, { route = ROUTE, registerTool = true } = {}) {
   const timeoutMs = Number(config.checkTimeoutMs) > 0 ? Number(config.checkTimeoutMs) : 8000
   const managerOf = () => ctx.get('pluginManager')
   const version = typeof SELF?.version === 'string' ? SELF.version : null
@@ -97,7 +101,7 @@ export function apply(ctx, config = {}) {
 
   ctx.effect(() => ctx.webServer.register({
     kind: 'exact',
-    path: ROUTE,
+    path: route,
     async handler(req, res) {
       const signal = AbortSignal.timeout(timeoutMs * 12)
       // Only the plugin's own page posts here; other methods and origins get no action.
@@ -121,7 +125,7 @@ export function apply(ctx, config = {}) {
     },
   }), 'cross-model-subagent: update route')
 
-  ctx.tools.register({
+  if (registerTool) ctx.tools.register({
     name: 'cross_model_subagent_update',
     description: 'Check the public repository for a newer release of this plugin, or install the checked release. Installation goes through the DSH plugin manager, which rolls back a failed change and reports whether a restart is required. This tool never edits profile files.',
     parameters: {
@@ -145,5 +149,5 @@ export function apply(ctx, config = {}) {
     },
   })
 
-  return { route: ROUTE, version, repository: REPOSITORY }
+  return { route, version, repository: REPOSITORY }
 }

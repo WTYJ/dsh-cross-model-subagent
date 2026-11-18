@@ -58,13 +58,15 @@ window.__ModuleLoader__.load({
         sessionModel: '本会话的执行模型', inheritHint: '清除覆盖后，这个会话将使用全局默认；全局关闭时沿用父模型。',
         parentHint: '这个会话始终沿用父级模型，即使全局指定了默认模型。', routeHint: '这个会话使用下面的模型，即使全局默认关闭。',
         modeHelp: '三选一：继承全局默认、沿用父级模型，或指定一个模型。本组任一选择都不会自动提交。',
-        effective: '当前已保存的行为：', noSession: '暂无可选会话。请先创建或打开会话，再刷新。', current: '当前会话',
+        runtimeNext: '下次普通委派', runtimeSession: '会话覆盖', runtimeGlobal: '全局默认', runtimeParent: '沿用父级模型',
+        runtimeClosed: '打开该会话后检查是否生效。', runtimeUnsupported: '该会话的预设使用原生委派行为。',
+        runtimeNoTool: '该会话没有普通子代理工具。', runtimeMountFailed: '模型覆盖加载失败，委派由原生工具处理。',
+        runtimeInvalid: '已保存的模型配置不完整，请检查设置。', runtimeUnavailable: '暂时无法读取生效状态。', runtimeLoading: '正在核对生效状态…',
+        effective: '已保存：', noSession: '暂无可选会话。请先创建或打开会话，再刷新。', current: '当前会话',
         sessionLoading: '正在加载会话…', missingSession: '所选会话已不在可用列表中。草稿保留，请撤销后重新选择。',
         selectedIdLabel: '所选会话详情', copyId: '复制', copied: '已复制', copyFailed: '复制失败，可直接选取会话 ID 文本。',
-        teamsTitle: '团队协作', teamsHint: '为所选会话启用或停用团队协作。',
+        teamsTitle: '团队协作', teamsOfficial: '已有会话请在对应根会话的模型／推理菜单中操作。官方开关会显示当前状态，并在需要时确认停用。',
         forceTitle: '新会话默认', forceHint: '应用于之后新建的根会话。', forceLabel: '自动启用团队协作',
-        teamsExistingTitle: '已有会话', teamsTarget: '团队协作目标会话',
-        teamsEnable: '启用团队协作', teamsDisable: '停用团队协作', teamsEnabled: '已为所选会话启用团队协作。', teamsDisabled: '已为所选会话停用团队协作。',
         save: '保存', saving: '保存中…', discard: '撤销草稿', saved: '已保存', working: '处理中…',
         dirty: '有未保存的修改。', switchProtected: '请先保存或撤销草稿，再切换目标会话。',
         refused: 'Host 未接受保存（可能是配置已改变或验证失败）。草稿已保留，请刷新后核对。',
@@ -87,7 +89,7 @@ window.__ModuleLoader__.load({
         updateBadgeReady: '可发现新版本', updateBadgeUpToDate: '已是最新', updateBadgeAhead: '当前本地版本更新',
         updateEmptyNote: '仓库还没有任何提交，因此暂时无法比较版本；推送第一个版本后再检查即可。',
         updateBadgeUnknown: '无法比较版本', updateBadgeEmpty: '仓库尚无提交', updateBadgeError: '检查失败',
-        updateNotes: '更新说明：',
+        updateNotes: '更新说明：', updateReleaseLink: '查看 GitHub 更新日志',
         updateAheadNote: '本地版本比 GitHub 上的发布更新（可能是本地改动或未发布的提交）。无需更新。',
         updateUnknownNote: '无法比较版本：当前或最新版本不是有效的语义化版本号。',
         updateInstallButton: '安装 v{version}', updateRecheck: '重新检查', updateRetry: '重试检查',
@@ -114,13 +116,15 @@ window.__ModuleLoader__.load({
         sessionModel: 'Subagent model for this session', inheritHint: 'Clearing the override restores the global default, or the parent model when the global default is off.',
         parentHint: 'This session uses the parent model even when a global default is specified.', routeHint: 'This session uses the model below even when the global default is off.',
         modeHelp: 'Choose one of three: inherit the global default, use the parent model, or specify one model. Selecting any option never auto-submits.',
-        effective: 'Currently saved behavior: ', noSession: 'No sessions available. Create or open a session, then refresh.', current: 'Current session',
+        runtimeNext: 'Next ordinary delegation', runtimeSession: 'Session override', runtimeGlobal: 'Global default', runtimeParent: 'Parent model',
+        runtimeClosed: 'Open the session to check whether the override is active.', runtimeUnsupported: 'This session’s preset uses native delegation behavior.',
+        runtimeNoTool: 'This session has no ordinary subagent tool.', runtimeMountFailed: 'The model override failed to load. The native tool handles delegation.',
+        runtimeInvalid: 'The saved model configuration is incomplete. Check the settings.', runtimeUnavailable: 'The active status is unavailable.', runtimeLoading: 'Checking active status…',
+        effective: 'Saved: ', noSession: 'No sessions available. Create or open a session, then refresh.', current: 'Current session',
         sessionLoading: 'Loading sessions…', missingSession: 'The selected session is no longer available. The draft is retained; discard it to select another session.',
         selectedIdLabel: 'Selected session details', copyId: 'Copy', copied: 'Copied', copyFailed: 'Copy failed. Select the session ID text to copy it manually.',
-        teamsTitle: 'Agent Teams', teamsHint: 'Enable or disable teamwork for the selected session.',
+        teamsTitle: 'Agent Teams', teamsOfficial: 'For an existing session, use its root conversation’s model and reasoning menu. The built-in switch shows the current state and confirms disabling when needed.',
         forceTitle: 'New sessions', forceHint: 'Applies to newly created root sessions.', forceLabel: 'Enable teamwork automatically',
-        teamsExistingTitle: 'Existing session', teamsTarget: 'Target session for teamwork',
-        teamsEnable: 'Enable Agent Teams', teamsDisable: 'Disable Agent Teams', teamsEnabled: 'Agent Teams enabled for the selected session.', teamsDisabled: 'Agent Teams disabled for the selected session.',
         save: 'Save', saving: 'Saving…', discard: 'Discard draft', saved: 'Saved', working: 'Working…',
         dirty: 'Unsaved changes.', switchProtected: 'Save or discard the draft before switching sessions.',
         refused: 'The Host refused the save (configuration may have changed or validation failed). Your draft is retained; refresh and review it.',
@@ -143,7 +147,7 @@ window.__ModuleLoader__.load({
         updateBadgeReady: 'New version available', updateBadgeUpToDate: 'Up to date', updateBadgeAhead: 'Local version is newer',
         updateEmptyNote: 'The repository has no commits yet, so there is no version to compare against. Check again after the first release is pushed.',
         updateBadgeUnknown: 'Cannot compare versions', updateBadgeEmpty: 'No commits published yet', updateBadgeError: 'Check failed',
-        updateNotes: 'Release notes: ',
+        updateNotes: 'Release notes: ', updateReleaseLink: 'View GitHub release notes',
         updateAheadNote: 'The local version is newer than the published release (local changes or an unreleased commit). No update is needed.',
         updateUnknownNote: 'Cannot compare versions: the current or latest version is not a valid semantic version.',
         updateInstallButton: 'Install v{version}', updateRecheck: 'Check again', updateRetry: 'Retry check',
@@ -190,6 +194,7 @@ window.__ModuleLoader__.load({
       heading: { fontSize: type.body, fontWeight: 650, lineHeight: 1.4, margin: 0 },
       tag: { display: 'inline-block', fontSize: type.detail, fontWeight: 600, padding: '0.125rem 0.5rem', borderRadius: '0.375rem', background: C.fill },
       hint: { color: C.muted, fontSize: type.detail, margin: 0 },
+      link: { color: C.text, textDecoration: 'underline', textUnderlineOffset: '0.15em' },
       row: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' },
       field: { display: 'grid', gap: '0.375rem', minWidth: 0, fontWeight: 550 },
       select: { width: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: '0.5rem', border: '1px solid ' + C.border,
@@ -254,13 +259,13 @@ window.__ModuleLoader__.load({
 @container cms (inline-size >= 56rem) {
   #${ROOT} .cms-versions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
-#${ROOT} :is(button, select, summary, input):focus-visible { outline: 2px solid ${C.focus}; outline-offset: 2px; }
+#${ROOT} :is(a, button, select, summary, input):focus-visible { outline: 2px solid ${C.focus}; outline-offset: 2px; }
 @media (hover: hover) {
   #${ROOT} button:enabled:hover { filter: brightness(0.92); }
   #${ROOT} summary:hover { color: ${C.text}; }
 }
 @media (forced-colors: active) {
-  #${ROOT} :is(button, select, summary, input):focus-visible { outline-color: CanvasText; }
+  #${ROOT} :is(a, button, select, summary, input):focus-visible { outline-color: CanvasText; }
 }
 @media (pointer: coarse) {
   #${ROOT} :is(button, select, summary, .cms-choice) { min-block-size: 3rem; box-sizing: border-box; }
@@ -405,12 +410,12 @@ window.__ModuleLoader__.load({
       return catalog.groups.some(g => g.id === route.provider && (g.models || []).some(m => m.id === route.model))
     }
     // Option values use the full id; the visible label leads with the title and marks the current session.
-    function SessionPicker({ t, rows, value, disabled, onChange, teams }) {
+    function SessionPicker({ t, rows, value, disabled, onChange }) {
       const selected = rows.find(row => row.id === value)
       const titleCounts = new Map()
       for (const row of rows) titleCounts.set(row.title, (titleCounts.get(row.title) || 0) + 1)
       return h(React.Fragment, null,
-        h(Select, { label: t(teams ? 'teamsTarget' : 'target'), value: value || '', disabled: disabled || !rows.length, onChange },
+        h(Select, { label: t('target'), value: value || '', disabled: disabled || !rows.length, onChange },
           !value ? h(Option, { value: '' }, t('noSession')) : null,
           value && !selected ? h(Option, { value }, value + ' · ' + t('stale')) : null,
           rows.map(row => {
@@ -461,6 +466,8 @@ window.__ModuleLoader__.load({
     // same-origin path and never merges with the panel's own refresh snapshot.
     // -------------------------------------------------------------------------
     const UPDATE_ROUTE = '/model-delegation/update'
+    const STATUS_ROUTE = '/model-delegation/status'
+    const RELEASES_URL = 'https://github.com/WTYJ/dsh-cross-model-subagent/releases'
     const MIGRATE_COMMAND = 'dsh plugin add https://github.com/WTYJ/dsh-cross-model-subagent.git'
     const UPDATE_STATUSES = ['ready', 'up-to-date', 'ahead', 'forward', 'unknown-version', 'empty', 'error']
 
@@ -512,6 +519,12 @@ window.__ModuleLoader__.load({
     }
     const isLinkKind = (source) => !!source && (source.kind === 'link' || source.kind === 'path')
     const isApplySettled = (outcome) => !!outcome && outcome.phase === 'done'
+
+    function releaseNotesUrl(version) {
+      return /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version ?? '')
+        ? RELEASES_URL + '/tag/v' + encodeURIComponent(version)
+        : RELEASES_URL
+    }
 
     function VersionBadge({ t, status }) {
       if (!UPDATE_STATUSES.includes(status)) return null
@@ -602,7 +615,7 @@ window.__ModuleLoader__.load({
         if (controller.current) { try { controller.current.abort() } catch (_) {} controller.current = null }
       }
 
-      const runCheck = useCallback(async () => {
+      const runCheck = useCallback(async (force = false) => {
         if (!alive.current) return
         if (lock.current) return
         lock.current = true
@@ -615,7 +628,7 @@ window.__ModuleLoader__.load({
           const response = await fetch(UPDATE_ROUTE, {
             method: 'POST', credentials: 'same-origin', cache: 'no-store',
             headers: { 'content-type': 'application/json', accept: 'application/json' },
-            body: JSON.stringify({ action: 'check' }), signal: ac.signal,
+            body: JSON.stringify({ action: 'check', force }), signal: ac.signal,
           })
           const data = await readUpdateResponse(response, t)
           if (!alive.current || controller.current !== ac) return
@@ -772,8 +785,9 @@ window.__ModuleLoader__.load({
                   h(Icon, { name: 'download', size: 16 }),
                   h('span', null, t('updateInstallButton').replace('{version}', String(data.latestVersion)))))
               : null,
-            h(Button, { disabled: installDisabled, onClick: () => { void runCheck() }, icon: 'refresh' },
+            h(Button, { disabled: installDisabled, onClick: () => { void runCheck(true) }, icon: 'refresh' },
               installing ? t('updateInstalling') : busyCheck ? t('updateCheckingShort') : (checkFailed ? t('updateRetry') : t('updateRecheck'))),
+            h('a', { href: releaseNotesUrl(data.latestVersion || data.currentVersion), target: '_blank', rel: 'noopener noreferrer', style: S.link }, t('updateReleaseLink')),
           ),
 
           h(LiveNote, { ok: !installing && !outcomeError, error: outcomeError,
@@ -877,7 +891,44 @@ window.__ModuleLoader__.load({
         ),
       )
     }
-    function SessionSection({ scope, snap, t, catalog, rows, sessionsLoading, blocked, setBusy }) {
+    function DelegationStatus({ t, sessionId, revision, refreshKey }) {
+      const [result, setResult] = useState(null)
+      useEffect(() => {
+        const controller = new AbortController()
+        const url = STATUS_ROUTE + '?sessionId=' + encodeURIComponent(sessionId)
+        fetch(url, { method: 'POST', credentials: 'same-origin', signal: controller.signal })
+          .then(response => response.ok ? response.json() : null)
+          .then(data => {
+            if (!controller.signal.aborted) setResult({ sessionId, revision, refreshKey, data })
+          })
+          .catch(() => {
+            if (!controller.signal.aborted) setResult({ sessionId, revision, refreshKey, data: null })
+          })
+        return () => controller.abort()
+      }, [sessionId, revision, refreshKey])
+      const ready = result && result.sessionId === sessionId && result.revision === revision && result.refreshKey === refreshKey
+      const status = result?.data
+      let reason, text = ''
+      if (!ready) text = ''
+      else if (!status?.ok) reason = 'runtimeUnavailable'
+      else if (status.application === 'next-open') reason = 'runtimeClosed'
+      else if (status.mountFailed) reason = 'runtimeMountFailed'
+      else if (!status.nativeToolPresent) reason = 'runtimeNoTool'
+      else if (status.application !== 'next-subagent-call') reason = 'runtimeUnsupported'
+      else if (status.configurationInvalid || !status.selection) reason = 'runtimeInvalid'
+      else {
+        const { route, source } = status.selection
+        const model = route || status.parentRoute
+        const label = model?.provider && model?.model ? model.provider + '/' + model.model : t('runtimeParent')
+        const sourceLabel = t(source === 'session' ? 'runtimeSession' : source === 'global' ? 'runtimeGlobal' : 'runtimeParent')
+        text = t('runtimeNext') + ' · ' + label + (label === sourceLabel ? '' : ' · ' + sourceLabel)
+      }
+      return h(React.Fragment, null,
+        !ready ? h('p', { style: S.hint }, t('runtimeLoading')) : null,
+        h(LiveNote, { icon: 'info', text: reason ? t(reason) : text }))
+    }
+
+    function SessionSection({ scope, snap, t, catalog, rows, sessionsLoading, blocked, setBusy, refreshKey }) {
       const [chosen, setChosen] = useState('')
       const activeId = chosen || (rows.find(row => row.current) || rows[0] || {}).id || ''
       const editor = useEditor(scope, snap, value => sessionValue(value, activeId), setBusy, t)
@@ -910,6 +961,7 @@ window.__ModuleLoader__.load({
         editor.dirty ? h('p', { style: S.hint }, t('switchProtected')) : null,
         activeId ? h('form', { className: 'cms-stack', 'aria-labelledby': titleId, onSubmit: e => { e.preventDefault(); submit() }, noValidate: true },
           h('p', { style: S.effective }, t('effective'), h('strong', { className: 'cms-saved' }, behavior)),
+          present && snap.status === 'ready' ? h(DelegationStatus, { t, sessionId: activeId, revision: snap.revision, refreshKey }) : null,
           h(ModeRadio, { t, value: value.mode, disabled: blocked || !present, onChange: mode => change({ mode, provider: mode === 'route' ? value.provider : '', model: mode === 'route' ? value.model : '' }), describedBy: modeHelpId }),
           h('span', { id: modeHelpId, style: { display: 'none' } }, t('modeHelp')),
           value.mode === 'route' ? h(ModelPicker, { t, catalog, label: t('sessionModel'), value, disabled: blocked || !present,
@@ -925,37 +977,9 @@ window.__ModuleLoader__.load({
       return h(Card, { title: t('forceTitle'), titleId, hint: t('forceHint'), icon: 'users', headingLevel: 'h3' },
         h('form', { className: 'cms-stack', 'aria-labelledby': titleId, onSubmit: e => { e.preventDefault(); if (blocked) return; void editor.save([{ op: 'set', path: ['forceAgentTeams'], value: editor.value }]) } },
           h(Toggle, { label: t('forceLabel'), checked: editor.value, disabled: blocked, onChange: editor.change }),
+          h('p', { style: S.hint }, t('teamsOfficial')),
           h(EditorFooter, { editor, t, disabled: blocked }),
         ),
-      )
-    }
-    // Team operation card is NOT a form: it calls an RPC action and has no navigation target.
-    function TeamsSection({ ctx, t, rows, blocked, setBusy }) {
-      const [chosen, setChosen] = useState('')
-      const [busy, setLocalBusy] = useState(false)
-      const [result, setResult] = useState(null)
-      const lock = useRef(false)
-      const activeId = chosen || (rows.find(row => row.current) || rows[0] || {}).id || ''
-      const present = rows.some(row => row.id === activeId)
-      const run = async enabled => {
-        if (!present || lock.current) return
-        const id = activeId
-        setChosen(id)
-        lock.current = true; setLocalBusy(true); setBusy(true); setResult(null)
-        try {
-          const response = await ctx.remote.agentTeams.setEnabled(id, enabled)
-          if (!response || !response.ok) throw new Error(response && response.error && response.error.message || t('error'))
-          setResult({ id, text: t(enabled ? 'teamsEnabled' : 'teamsDisabled') })
-        } catch (error) { setResult({ id, error: true, text: error && error.message || t('error') }) }
-        finally { lock.current = false; setLocalBusy(false); setBusy(false) }
-      }
-      return h(Card, { title: t('teamsExistingTitle'), hint: t('teamsHint'), icon: 'users', headingLevel: 'h3' },
-        h(SessionPicker, { t, teams: true, rows, value: activeId, disabled: blocked || busy, onChange: id => { setChosen(id); setResult(null) } }),
-        h('div', { style: S.row },
-          h(Button, { primary: true, disabled: blocked || busy || !present, onClick: () => { void run(true) }, icon: 'check' }, t('teamsEnable')),
-          h(Button, { disabled: blocked || busy || !present, onClick: () => { void run(false) }, icon: 'reset' }, t('teamsDisable'))),
-        busy ? h(Note, { icon: 'info' }, t('working')) : null,
-        result && result.id === activeId ? h(LiveNote, { error: result.error, ok: !result.error, icon: result.error ? 'info' : 'check', text: result.text, live: result.error ? 'assertive' : 'polite' }) : null,
       )
     }
     function Panel({ ctx, t, useSessions }) {
@@ -968,6 +992,7 @@ window.__ModuleLoader__.load({
       const [freshIds, setFreshIds] = useState(null)
       const [catalog, setCatalog] = useState({ groups: [], loading: true, loaded: false })
       const [refreshing, setRefreshing] = useState(false)
+      const [refreshKey, setRefreshKey] = useState(0)
       const [refreshMessage, setRefreshMessage] = useState('')
       const [refreshError, setRefreshError] = useState('')
       const [availability, setAvailability] = useState({ present: null, writable: null, mirrorView: null })
@@ -1027,7 +1052,7 @@ window.__ModuleLoader__.load({
           setRefreshMessage(t('refreshed'))
           refreshTimer.current = setTimeout(() => { if (alive.current) setRefreshMessage('') }, 3000)
         } else setRefreshMessage('')
-        setRefreshing(false); refreshLock.current = false
+        setRefreshKey(key => key + 1); setRefreshing(false); refreshLock.current = false
       }, [ctx, mirror, scope, t])
       useEffect(() => {
         alive.current = true
@@ -1064,13 +1089,12 @@ window.__ModuleLoader__.load({
           h('section', { 'aria-labelledby': modelsTitleId },
             h('h2', { style: S.groupTitle, id: modelsTitleId }, t('workerSettings')),
             h('div', { style: S.card },
-              h(SessionSection, { scope, snap, t, catalog, rows, sessionsLoading: !sessions || sessions.phase === 'pending', blocked, setBusy: busy }),
+              h(SessionSection, { scope, snap, t, catalog, rows, sessionsLoading: !sessions || sessions.phase === 'pending', blocked, setBusy: busy, refreshKey }),
               h(GlobalSection, { scope, snap, t, catalog, blocked, setBusy: busy }))),
           h('section', null,
             h('h2', { style: S.groupTitle }, t('teamsTitle')),
             h('div', { style: S.card },
-              h(ForceSection, { scope, snap, t, blocked, setBusy: busy }),
-              h(TeamsSection, { ctx, t, rows, blocked: refreshing || busyCount > 0, setBusy: busy }))),
+              h(ForceSection, { scope, snap, t, blocked, setBusy: busy }))),
           h('div', { style: S.card }, h(UpdateSection, { t })),
           h(Details, { summary: t('details') }, t('scopeHint')),
         ))
@@ -1084,7 +1108,7 @@ window.__ModuleLoader__.load({
         h('circle', { cx: 3.5, cy: 6, r: 1.2, fill: 'currentColor', stroke: 'none' }))
     }
     return {
-      inject: ['slots', 'locale', 'configForms', 'sessions', 'remote', 'remote.session', 'remote.settings', 'remote.agentTeams'],
+      inject: ['slots', 'locale', 'configForms', 'sessions', 'remote', 'remote.session', 'remote.settings'],
       apply(ctx) {
         const ID = 'cross_model_subagent_settings'
         const t = ctx.locale.bind(NS)

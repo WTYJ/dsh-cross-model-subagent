@@ -6,6 +6,7 @@
 import { pathToFileURL } from 'node:url'
 import { resolveInstalled, schema } from './installed.js'
 import { snapshotSettings, resolveDefault, checkedRoute, updateSettings } from './routing.js'
+import { registerStatusRoute } from './status-web.js'
 
 const z = schema()
 const nativeTool = await import(pathToFileURL(resolveInstalled('@deepseek-ai/dsh-tool-subagent')).href)
@@ -82,7 +83,7 @@ export async function apply(ctx, config) {
       state.ready = true
     } catch (error) {
       state.error = error.message ?? String(error)
-      throw error
+      await fiber.dispose()
     }
   }
 
@@ -117,7 +118,7 @@ export async function apply(ctx, config) {
 
   function rootOf(agent) { return ctx.subagents.rootOf(agent) }
   function status(agent, targetId) {
-    const root = rootOf(agent)
+    const root = agent ? rootOf(agent) : null
     const id = targetId ?? root.id
     const target = ctx.agents.get(id)
     const settings = current()
@@ -131,8 +132,8 @@ export async function apply(ctx, config) {
     const installation = target ? mounts.get(target) : undefined
     return {
       sessionId: id,
-      callingAgentSessionId: agent.id,
-      rootSessionId: root.id,
+      callingAgentSessionId: agent?.id ?? null,
+      rootSessionId: root?.id ?? null,
       parentRoute: target?.model.current() ?? null,
       selection,
       settings,
@@ -166,6 +167,7 @@ export async function apply(ctx, config) {
     return { ok: true, ...status(agent, id) }
   }
 
+  registerStatusRoute(ctx, id => status(null, id))
   ctx.tools.register({
     name: 'cross_model_subagent_status',
     description: 'Read the configured default worker model and actual native subagent override for the current root session (or a supplied sessionId). Distinguishes default routing from explicit-model authorization. Does not change configuration.',

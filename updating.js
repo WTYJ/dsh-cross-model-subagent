@@ -417,7 +417,7 @@ function manifestSources(commitSha) {
     })
   }
   sources.push({
-    url: `https://raw.githubusercontent.com/${REPOSITORY.owner}/${REPOSITORY.repo}/${REPOSITORY.branch}/${path}`,
+    url: `https://raw.githubusercontent.com/${REPOSITORY.owner}/${REPOSITORY.repo}/${commitSha}/${path}`,
     accept: '*/*',
     missing: 'missing-version',
     decode: json => readManifestVersion(JSON.stringify(json)),
