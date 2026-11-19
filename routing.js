@@ -1,6 +1,6 @@
 /** Pure default-route selection. These preferences are deployment defaults,
  * not modifications to DSH's immutable explicit-model authorization policy. */
-export function readField(value) {
+function readField(value) {
   return value && typeof value.get === 'function' ? value.get() : value
 }
 

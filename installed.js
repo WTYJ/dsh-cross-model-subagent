@@ -13,7 +13,7 @@ import path from 'node:path'
 const require = createRequire(import.meta.url)
 
 /** Directories whose `node_modules` may hold the installation's packages. */
-export function installAnchors() {
+function installAnchors() {
   const exe = path.dirname(process.execPath)
   const anchors = [
     process.env.DSH_INSTALL_DIR,

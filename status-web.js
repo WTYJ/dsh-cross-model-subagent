@@ -1,53 +1,54 @@
-export const STATUS_ROUTE = '/model-delegation/status'
-export const TEAM_MODELS_ROUTE = '/model-delegation/team-models'
+const STATUS_ROUTE = '/model-delegation/status'
+const TEAM_MODELS_ROUTE = '/model-delegation/team-models'
 
 const loopback = /^(?:::1|(?:::ffff:)?127(?:\.\d{1,3}){3})$/i
 const validId = id => typeof id === 'string' && id.length > 0 && id.length <= 160
 
 function registerSummaryRoute(ctx, path, read) {
-  const server = ctx.get('webServer')
-  if (!server) return
-  ctx.effect(() => server.register({
-    kind: 'exact', path,
-    async handler(req, res) {
-      const respond = (status, body) => {
-        if (res.destroyed) return
-        res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-        res.end(JSON.stringify(body))
-      }
-      const origin = server.getOrigin()
-      if (req.method !== 'POST') return respond(405, { ok: false })
-      if (!loopback.test(req.socket.remoteAddress ?? '') || req.headers.host !== new URL(origin).host) {
-        return respond(403, { ok: false })
-      }
-      if (req.headers.origin !== origin) {
-        if (req.headers.origin !== undefined) return respond(403, { ok: false })
-        // Electron removes Origin when forwarding requests and supplies its Host-issued cookie.
-        const admission = ctx.get('connection')?.admit?.(req)
-        if (admission?.peer?.principal.kind !== 'owner') return respond(admission?.rejection ?? 403, { ok: false })
-      }
-      const query = new URL(req.url, origin).searchParams
-      const id = query.get('sessionId')
-      if (!validId(id)) return respond(400, { ok: false })
-      const aborted = new AbortController()
-      const close = () => aborted.abort()
-      res.once('close', close)
-      try {
-        const signal = AbortSignal.any([aborted.signal, AbortSignal.timeout(5000)])
-        const result = await read(id, query, signal)
-        return result ? respond(200, { ok: true, ...result }) : respond(400, { ok: false })
-      } catch {
-        return respond(503, { ok: false })
-      } finally {
-        res.off('close', close)
-      }
-    },
-  }), `model delegation: ${path}`)
+  ctx.inject(['webServer'], webCtx => {
+    const server = webCtx.webServer
+    webCtx.effect(() => server.register({
+      kind: 'exact', path,
+      async handler(req, res) {
+        const respond = (status, body) => {
+          if (res.destroyed) return
+          res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+          res.end(JSON.stringify(body))
+        }
+        const origin = server.getOrigin()
+        if (req.method !== 'POST') return respond(405, { ok: false })
+        if (!loopback.test(req.socket.remoteAddress ?? '') || req.headers.host !== new URL(origin).host) {
+          return respond(403, { ok: false })
+        }
+        if (req.headers.origin !== origin) {
+          if (req.headers.origin !== undefined) return respond(403, { ok: false })
+          // Electron removes Origin when forwarding requests and supplies its Host-issued cookie.
+          const admission = ctx.get('connection')?.admit?.(req)
+          if (admission?.peer?.principal.kind !== 'owner') return respond(admission?.rejection ?? 403, { ok: false })
+        }
+        const query = new URL(req.url, origin).searchParams
+        const id = query.get('sessionId')
+        if (!validId(id)) return respond(400, { ok: false })
+        const aborted = new AbortController()
+        const close = () => aborted.abort()
+        res.once('close', close)
+        try {
+          const signal = AbortSignal.any([aborted.signal, AbortSignal.timeout(5000)])
+          const result = await read(id, query, signal)
+          return result ? respond(200, { ok: true, ...result }) : respond(400, { ok: false })
+        } catch {
+          return respond(503, { ok: false })
+        } finally {
+          res.off('close', close)
+        }
+      },
+    }), `model delegation: ${path}`)
+  })
 }
 
 /** Expose only the panel summary on the local Web listener. */
-export function registerStatusRoute(ctx, readStatus, path = STATUS_ROUTE) {
-  registerSummaryRoute(ctx, path, async id => {
+export function registerStatusRoute(ctx, readStatus) {
+  registerSummaryRoute(ctx, STATUS_ROUTE, async id => {
     const status = await readStatus(id)
     return {
       application: status.application,
@@ -109,6 +110,6 @@ export async function readTeamModels(ctx, id, requestedIds, signal) {
   return { enabled: true, parentRoute: recordedModel(root.session) ?? modelIdentity(root.model.current()), members }
 }
 
-export function registerTeamModelsRoute(ctx, path = TEAM_MODELS_ROUTE) {
-  registerSummaryRoute(ctx, path, (id, query, signal) => readTeamModels(ctx, id, query.getAll('memberId'), signal))
+export function registerTeamModelsRoute(ctx) {
+  registerSummaryRoute(ctx, TEAM_MODELS_ROUTE, (id, query, signal) => readTeamModels(ctx, id, query.getAll('memberId'), signal))
 }

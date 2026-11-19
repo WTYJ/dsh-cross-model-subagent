@@ -134,6 +134,22 @@ test('host composes official native subagent with live defaults and owned scope'
   assert.equal(ctx.tools.get('cross_model_subagent_configure', existing), undefined)
 })
 
+test('model summary routes follow the Web service lifecycle after host startup', async t => {
+  const f = await fixture()
+  t.after(() => f.ctx.root.fiber.dispose())
+  const routes = new Set()
+  const web = f.ctx.root.plugin({ apply(ctx) {
+    ctx.provide('webServer', { register(route) {
+      routes.add(route.path)
+      return () => { routes.delete(route.path) }
+    } })
+  } })
+  await web
+  assert.deepEqual([...routes].sort(), ['/model-delegation/status', '/model-delegation/team-models'])
+  await web.dispose()
+  assert.equal(routes.size, 0)
+})
+
 // Exercise the updater route without invoking an actual plugin installation.
 const PINNED = buildGitSpec('a'.repeat(40))
 const HOST = '127.0.0.1:12345'

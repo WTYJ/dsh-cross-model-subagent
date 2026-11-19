@@ -7,12 +7,19 @@ import { REPOSITORY } from './updating.js'
 
 const exec = promisify(execFile)
 
+/** Variables that would make this isolated repository inherit another Git
+ * invocation's state; stripped from the child environment. */
+const INHERITED_GIT_VARS = [
+  'GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_NAMESPACE',
+]
+
 /** Read a public branch tip and its manifest from the same fetched commit. */
 export async function readGitRelease(signal) {
   const cwd = await mkdtemp(join(tmpdir(), 'dsh-model-update-'))
   const env = { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' }
-  // This isolated repository must not inherit another Git invocation's repository state.
-  for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_NAMESPACE']) delete env[key]
+  for (const key of INHERITED_GIT_VARS) delete env[key]
+  // An empty credential helper keeps the fetch anonymous even if the profile configures one.
   const git = async (...args) => (await exec('git', ['-c', 'credential.helper=', ...args], {
     cwd, env, signal, windowsHide: true, maxBuffer: 1024 * 1024,
   })).stdout

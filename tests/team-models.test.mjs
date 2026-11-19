@@ -52,7 +52,10 @@ test('summary accepts Desktop forwarding with an authenticated owner and no Orig
   const server = { getOrigin: () => origin, register(route) { handler = route.handler } }
   const connection = { admit: req => req.admission }
   let handler
-  const ctx = { get: key => ({ webServer: server, connection })[key], effect: mount => mount() }
+  const ctx = {
+    get: key => ({ connection })[key],
+    inject: (_services, mount) => mount({ webServer: server, effect: activate => activate() }),
+  }
   registerStatusRoute(ctx, async id => ({ parentRoute: model('root', id) }))
 
   async function request(headers, admission = { rejection: 401 }, remoteAddress = '127.0.0.1') {

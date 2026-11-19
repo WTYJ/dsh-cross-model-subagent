@@ -6,7 +6,7 @@ import vm from 'node:vm'
 // Evaluate only the pure data block. No module loader, React, browser, or DOM is simulated.
 const source = readFileSync(new URL('./client.js', import.meta.url), 'utf8')
 const pure = source.split('// BEGIN PURE HELPERS')[1].split('// END PURE HELPERS')[0]
-const helpers = vm.runInNewContext(`(() => { ${pure}; return { routeKey, routeFromKey, sessionRows, defaultValue, sessionValue, replaceSession, beginEdit, isDirty, acceptedWrite, observeTeam, teamNotifications, teamMemberBatch } })()`)
+const helpers = vm.runInNewContext(`(() => { ${pure}; return { routeKey, routeFromKey, sessionRows, defaultValue, sessionValue, replaceSession, beginEdit, isDirty, acceptedWrite, observeTeam, teamNotifications, teamMemberLookupIds, teamMemberBatch } })()`)
 const plain = value => JSON.parse(JSON.stringify(value))
 
 test('client session rows use id, keep titles/current status and filter subagents', () => {
@@ -48,6 +48,25 @@ test('temporary dismissal waits for a new member while muting baselines unseen m
   assert.equal(notice.getSnapshot(), null)
   notice.observe('root', true, [a, b, c, d])
   assert.deepEqual(plain(notice.getSnapshot().members), [d])
+})
+
+test('new members reuse confirmed models while each manual refresh checks all members once', () => {
+  const route = { provider: 'p', model: 'm' }
+  const ids = ['confirmed', 'pending', 'new']
+  const known = new Map([['confirmed', route]])
+  const lastRefresh = new Map()
+  const lookup = refreshKey => plain(helpers.teamMemberLookupIds(ids, known, refreshKey, lastRefresh))
+
+  assert.deepEqual(lookup(0), ['pending', 'new'])
+  assert.deepEqual(lookup(1), ids)
+  lastRefresh.set('confirmed', 1)
+  lastRefresh.set('pending', 1)
+  assert.deepEqual(lookup(1), ['pending', 'new'])
+  known.set('new', route)
+  assert.deepEqual(lookup(1), ['pending', 'new'], 'an unfinished refresh still checks a cached model')
+  lastRefresh.set('new', 1)
+  assert.deepEqual(lookup(1), ['pending'])
+  assert.deepEqual(lookup(2), ids)
 })
 
 test('refresh distinguishes a failed member batch from models still awaiting confirmation', () => {

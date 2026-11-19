@@ -62,8 +62,7 @@ function main(argv) {
   run('git', ['commit', '-m', `release: v${version}`])
   run('git', ['tag', `v${version}`])
   if (args.includes('--push')) {
-    run('git', ['push', 'origin', 'HEAD'])
-    run('git', ['push', 'origin', `v${version}`])
+    run('git', ['push', '--atomic', 'origin', 'HEAD', `refs/tags/v${version}`])
   }
   console.log(`Released v${version}. Installed copies will see it after the commit reaches main.`)
 }

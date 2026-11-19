@@ -76,8 +76,8 @@ export function buildGitSpec(sha) {
   return `${REPOSITORY.git}#${sha.toLowerCase()}`
 }
 
-/** Normalize a source string to `host/owner/repo` (no protocol, no .git). */
-function normalizeOrigin(source) {
+/** Normalize a source string to `host/owner/repo` (no protocol, no .git), or null. */
+export function gitOriginOf(source) {
   if (typeof source !== 'string') return null
   let str = source.trim()
   if (!str) return null
@@ -120,11 +120,6 @@ function normalizeOrigin(source) {
   path = path.toLowerCase()
   if (!path) return null
   return `${host}/${path}`
-}
-
-/** Minimal equivalent of pinnedGitOrigin: `host/owner/repo` or null. */
-export function gitOriginOf(spec) {
-  return normalizeOrigin(spec)
 }
 
 const EXPECTED_ORIGIN = `${HOST}/${REPOSITORY.owner}/${REPOSITORY.repo}`.toLowerCase()
@@ -180,6 +175,14 @@ function retryAfterSeconds(response) {
     if (seconds > 0) return seconds
   }
   return undefined
+}
+
+/** The shared "quota used up" line; the wait is added only when it is known. */
+function rateLimitReason(wait, subject = 'the request') {
+  const head = `GitHub refused ${subject} because this IP has used its hourly anonymous quota.`
+  return wait === undefined
+    ? `${head} Try again later; signing in is not required for the update check.`
+    : `${head} Try again in about ${Math.ceil(wait / 60)} minutes.`
 }
 
 /** Read the last successful result's copy, when one is still fresh. */
@@ -289,9 +292,7 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
       commitAttempt.problem = `HTTP ${res.status}`
       commitAttempt.retryAfterSeconds = wait
       result.retryAfterSeconds = wait
-      return onRateLimit(wait === undefined
-        ? 'GitHub refused the request because this IP has used its hourly anonymous quota. Try again later; signing in is not required for the update check.'
-        : `GitHub refused the request because this IP has used its hourly anonymous quota. Try again in about ${Math.ceil(wait / 60)} minutes.`)
+      return onRateLimit(rateLimitReason(wait))
     }
     if (!res || !res.ok) {
       commitAttempt.problem = `HTTP ${res?.status ?? 'unknown'}`
@@ -372,19 +373,17 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
     }
   }
   if (latestVersion === null) {
-    const reasons = fetchAttempts.slice(1).map(attempt => `${attempt.url}: ${attempt.problem ?? 'unknown'}`)
-    if (fetchAttempts.slice(1).some(attempt => attempt.status === 403 || attempt.status === 429)) {
-      const wait = result.retryAfterSeconds
-      return onRateLimit(wait === undefined
-        ? 'GitHub rate-limited the manifest lookup. Try again later.'
-        : `GitHub rate-limited the manifest lookup. Try again in about ${Math.ceil(wait / 60)} minutes.`)
+    const manifestAttempts = fetchAttempts.slice(1)
+    if (manifestAttempts.some(attempt => attempt.status === 403 || attempt.status === 429)) {
+      return onRateLimit(rateLimitReason(result.retryAfterSeconds, 'the manifest lookup'))
     }
+    const reasons = manifestAttempts.map(attempt => `${attempt.url}: ${attempt.problem ?? 'unknown'}`)
     return fail('manifest-unavailable', `Could not read the published manifest. ${reasons.join('; ')}`)
   }
   result.latestVersion = latestVersion
   // Only a comparison that reached the repository is worth reusing.
   result.cacheable = true
-  return finish(currentVersion, latestVersion, commitSha, installed, result, fetchAttempts)
+  return finish(currentVersion, latestVersion, commitSha, installed, result)
 }
 
 /** Readable explanation for each reason a copy cannot install its own update. */
@@ -434,7 +433,7 @@ function readManifestVersion(text) {
 }
 
 /** Compare the two versions and decide whether this copy may self-update. */
-function finish(currentVersion, latestVersion, commitSha, installed, result, fetchAttempts) {
+function finish(currentVersion, latestVersion, commitSha, installed, result) {
   const cmp = compareVersions(currentVersion, latestVersion)
   if (cmp === null) {
     result.status = 'unknown-version'

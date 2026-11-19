@@ -6,7 +6,6 @@ window.__ModuleLoader__.load({
     const { useState, useEffect, useCallback, useMemo, useRef, useId } = React
     const NS = 'crossModelSubagent'
     const CONFIG = 'cross-model-subagent'
-    const TEAM_NOTICE_CONFIG = CONFIG
     // Scoped class prefix: every selector below is nested under this id so nothing leaks to the DSH shell.
     const ROOT = 'cms-panel'
 
@@ -47,6 +46,9 @@ window.__ModuleLoader__.load({
     const acceptedWrite = (result) => result === true
     function routeLabel(route) {
       return route?.provider && route?.model ? route.provider + ' / ' + route.model : ''
+    }
+    function teamMemberLookupIds(ids, known, refreshKey, lastRefresh) {
+      return ids.filter(id => !known.has(id) || (refreshKey > 0 && lastRefresh.get(id) !== refreshKey))
     }
     function teamMemberBatch(ids, data, known) {
       if (!data?.ok) return { confirmed: [], waiting: [], failed: true }
@@ -219,7 +221,6 @@ window.__ModuleLoader__.load({
     // Verified theme tokens used across installed host components, present in both theme branches.
     const C = {
       text: 'var(--dsw-alias-label-primary)', muted: 'var(--dsw-alias-label-secondary)',
-      faint: 'var(--dsw-alias-label-secondary)', caption: 'var(--dsw-alias-label-secondary)',
       border: 'var(--dsw-alias-border-l2)', borderSoft: 'var(--dsw-alias-border-l1)',
       surface: 'var(--dsw-alias-bg-layer-1)', surfaceAlt: 'var(--dsw-alias-bg-layer-2)',
       fill: 'var(--dsw-alias-bg-layer-2)', primary: 'var(--dsw-alias-brand-primary)',
@@ -335,13 +336,12 @@ window.__ModuleLoader__.load({
       info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 11v5', 'M12 8h.01'],
       refresh: ['M20 11a8 8 0 1 0-.7 4.5', 'M20 5v6h-6'],
       close: ['M4 4l16 16M20 4L4 20'],
-      copy: ['M9 9h10v10H9z', 'M5 15V5h10'],
       download: ['M12 4v10', 'M7 11l5 5 5-5', 'M5 20h14'],
     }
     function Icon({ name, size }) {
       const spec = ICONS[name] || ICONS.info
       const s = typeof size === 'number' ? size : 18
-      const children = spec.map((part, index) => h('path', { key: index, d: Array.isArray(part) ? part[0] : part }))
+      const children = spec.map((part, index) => h('path', { key: index, d: part }))
       return h('svg', {
         viewBox: '0 0 24 24', width: s, height: s, fill: 'none', stroke: 'currentColor',
         strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round',
@@ -361,33 +361,18 @@ window.__ModuleLoader__.load({
         icon ? h(Icon, { name: icon, size: 16 }) : null,
         h('span', null, children))
     }
-    // Note is a non-live block by default: static hints and error styling must not be announced.
-    // Dynamic results use LiveNote instead; `live` here is only a rare opt-in escape hatch.
-    function Note({ children, error, ok, icon, live }) {
-      if (!children) return null
-      const role = live === 'assertive' ? 'alert' : live === 'polite' ? 'status' : undefined
-      return h('div', { role, 'aria-live': live,
-        style: Object.assign({}, S.note, error ? S.noteError : ok ? S.noteOk : {}) },
-        icon ? h('span', {
-          style: error ? { color: C.error, display: 'inline-flex' } : ok ? { color: C.ok, display: 'inline-flex' } : { color: C.muted, display: 'inline-flex' },
-        }, h(Icon, { name: icon, size: 16 })) : null,
-        h('div', { style: { minWidth: 0, flex: '1 1 auto' } }, children))
+    function Note({ children, error, ok, icon, announce = false }) {
+      if (!children && !announce) return null
+      // Keep an empty status region mounted so assistive technology can announce updates.
+      return h('div', { role: announce ? 'status' : undefined, className: children ? undefined : 'cms-idle',
+        style: children ? { ...S.note, ...(error ? S.noteError : ok ? S.noteOk : {}) }
+          : { margin: 0, padding: 0, blockSize: 0, minBlockSize: 0, overflow: 'hidden' } },
+        children && icon ? h('span', { style: { color: error ? C.error : ok ? C.ok : C.muted, display: 'inline-flex' } },
+          h(Icon, { name: icon, size: 16 })) : null,
+        children ? h('div', { style: { minWidth: 0, flex: '1 1 auto' } }, children) : null)
     }
-    // Persistent live container for dynamic results: the node stays mounted (never display:none,
-    // never aria-hidden) so the live region is always in the accessibility tree and announces
-    // in-place text changes. While empty it collapses to a zero-size block with no gap/margin.
-    // Only "polite" success and error use this; static hints keep the inert Note above.
-    function LiveNote({ error, ok, icon, text, live }) {
-      const mode = live || 'polite'
-      const base = { role: mode === 'assertive' ? 'alert' : 'status', 'aria-live': mode }
-      const idle = { margin: 0, padding: 0, blockSize: 0, minBlockSize: 0, overflow: 'hidden', border: 0, background: 'transparent' }
-      return h('div', { ...base, className: text ? undefined : 'cms-idle',
-        style: text ? Object.assign({}, S.note, error ? S.noteError : ok ? S.noteOk : {}) : idle },
-        text ? h(React.Fragment, null,
-          icon ? h('span', {
-            style: error ? { color: C.error, display: 'inline-flex' } : ok ? { color: C.ok, display: 'inline-flex' } : { color: C.muted, display: 'inline-flex' },
-          }, h(Icon, { name: icon, size: 16 })) : null,
-          h('div', { style: { minWidth: 0, flex: '1 1 auto' } }, text)) : null)
+    function LiveNote({ text, ...props }) {
+      return h(Note, { ...props, announce: true }, text)
     }
     function Card({ title, titleId, hint, icon, headingLevel = 'h3', children }) {
       return h('section', { className: 'cms-card cms-stack' },
@@ -653,10 +638,7 @@ window.__ModuleLoader__.load({
       const [confirming, setConfirming] = useState(false)
       const [installing, setInstalling] = useState(false)
       const [outcome, setOutcome] = useState(null)
-      const lock = useRef(false)
-      const alive = useRef(false)
       const controller = useRef(null)
-      const mounted = useRef(false)
       const installButton = useRef(null)
       const restoreInstallFocus = useRef(false)
       useEffect(() => {
@@ -666,15 +648,8 @@ window.__ModuleLoader__.load({
         }
       }, [confirming])
 
-      const abortCurrent = () => {
-        if (controller.current) { try { controller.current.abort() } catch (_) {} controller.current = null }
-      }
-
       const runCheck = useCallback(async (force = false) => {
-        if (!alive.current) return
-        if (lock.current) return
-        lock.current = true
-        abortCurrent()
+        if (controller.current) return
         const ac = new AbortController()
         controller.current = ac
         setState({ phase: 'loading', data: null, error: '' })
@@ -686,7 +661,7 @@ window.__ModuleLoader__.load({
             body: JSON.stringify({ action: 'check', force }), signal: ac.signal,
           })
           const data = await readUpdateResponse(response, t)
-          if (!alive.current || controller.current !== ac) return
+          if (controller.current !== ac) return
           // The route may answer ok:false for a check (e.g. manager unavailable).
           if (data.ok === false) {
             setState({ phase: 'error', data: null, error: (typeof data.message === 'string' && data.message) ? data.message : t('updateCheckFailed') })
@@ -694,21 +669,17 @@ window.__ModuleLoader__.load({
             setState({ phase: 'ok', data, error: '' })
           }
         } catch (error) {
-          if (!alive.current || controller.current !== ac) return
+          if (controller.current !== ac) return
           if (error && error.name === 'AbortError') return
           setState({ phase: 'error', data: null, error: (error && error.message) || t('updateCheckFailed') })
         } finally {
           if (controller.current === ac) controller.current = null
-          lock.current = false
         }
       }, [t])
 
       const runApply = useCallback(async () => {
-        if (!alive.current || lock.current) return
         const data = state.data
-        if (!data || !data.spec || !data.latestVersion) return
-        lock.current = true
-        abortCurrent()
+        if (controller.current || !data?.spec || !data.latestVersion) return
         const ac = new AbortController()
         controller.current = ac
         setConfirming(false)
@@ -722,31 +693,30 @@ window.__ModuleLoader__.load({
             signal: ac.signal,
           })
           const result = await readUpdateResponse(response, t)
-          if (!alive.current || controller.current !== ac) return
+          if (controller.current !== ac) return
           setOutcome({ phase: 'done', application: result.application || (result.ok ? 'applied' : 'failed'), data: result })
           setInstalling(false)
           if (controller.current === ac) controller.current = null
-          lock.current = false
           // A finished install changes the on-disk version; re-run a silent check so the
           // displayed version reflects reality instead of the pre-install snapshot.
           void runCheck()
           return
         } catch (error) {
-          if (!alive.current || controller.current !== ac) return
+          if (controller.current !== ac) return
           if (error && error.name === 'AbortError') return
           setOutcome({ phase: 'done', application: 'failed', data: null, message: (error && error.message) || t('error') })
           setInstalling(false)
         } finally {
           if (controller.current === ac) controller.current = null
-          lock.current = false
         }
       }, [state.data, runCheck, t])
 
       useEffect(() => {
-        mounted.current = true
-        alive.current = true
         void runCheck()
-        return () => { alive.current = false; abortCurrent() }
+        return () => {
+          controller.current?.abort()
+          controller.current = null
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, [])
 
@@ -1027,6 +997,8 @@ window.__ModuleLoader__.load({
     function useTeamMemberModels(sessionId, members, refreshKey) {
       const [snapshot, setSnapshot] = useState(() => ({ modelById: new Map(), key: null }))
       const known = useRef(new Map())
+      // Track completed lookups per refresh so catalog changes can resume an interrupted refresh.
+      const lastRefresh = useRef(new Map())
       const key = JSON.stringify([refreshKey, members.filter(row => row.mode !== 'external').map(row => row.id)])
       useEffect(() => {
         const controller = new AbortController()
@@ -1042,6 +1014,9 @@ window.__ModuleLoader__.load({
             for (const id of batch) query.append('memberId', id)
             const data = await fetchModelSummary(TEAM_MODELS_ROUTE, query, controller.signal)
             if (controller.signal.aborted) return
+            if (refreshKey > 0) {
+              for (const id of batch) lastRefresh.current.set(id, refreshKey)
+            }
             if (data?.ok && data.enabled === false) { waiting.length = 0; break }
             const result = teamMemberBatch(batch, data, known.current)
             failed ||= result.failed
@@ -1052,9 +1027,9 @@ window.__ModuleLoader__.load({
           setSnapshot({ key, waiting: new Set(pending ? waiting : []), failed, modelById: new Map(known.current) })
           if (pending) timer = setTimeout(() => { void poll(waiting) }, 1200)
         }
-        void poll(ids)
+        void poll(teamMemberLookupIds(ids, known.current, refreshKey, lastRefresh.current))
         return () => { controller.abort(); clearTimeout(timer) }
-      }, [sessionId, key])
+      }, [sessionId, key, refreshKey])
       const checked = snapshot.key === key
       return { modelById: snapshot.modelById, checked, waiting: checked ? snapshot.waiting : null, failed: checked && snapshot.failed }
     }
@@ -1263,7 +1238,6 @@ window.__ModuleLoader__.load({
       const refreshTimer = useRef(null)
       const modelsTitleId = useId()
       const clearRefreshTimer = () => { if (refreshTimer.current) { clearTimeout(refreshTimer.current); refreshTimer.current = null } }
-      useEffect(() => () => { alive.current = false; clearRefreshTimer() }, [])
       // The official list refresh returns void even after a failed RPC. Verify the real
       // list response separately so a swallowed failure cannot produce a success notice.
       // announce=false for the initial load; announce=true only for a manual refresh, and a
@@ -1375,7 +1349,7 @@ window.__ModuleLoader__.load({
         const t = ctx.locale.bind(NS)
         ctx.effect(() => ctx.locale.register(NS, dict), 'cross-model-subagent: dictionaries')
         const notifications = teamNotifications()
-        const noticeScope = ctx.configForms.get(TEAM_NOTICE_CONFIG)
+        const noticeScope = ctx.configForms.get(CONFIG)
         const layout = ctx.get('layout')
         let target = null
         const navigationListeners = new Set()

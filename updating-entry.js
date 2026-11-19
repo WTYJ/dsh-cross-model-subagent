@@ -96,10 +96,10 @@ export function mountUpdater(ctx, config, { route = ROUTE, registerTool = true }
     kind: 'exact',
     path: route,
     async handler(req, res) {
-      const signal = AbortSignal.timeout(timeoutMs * 12)
+      if (req.method !== 'POST') { json(res, { ok: false, message: 'POST required.' }, 405); return }
       // Electron forwards an authenticated request without Origin. Connection
       // verifies the credentials for installation whether Origin is present or not.
-      if (req.method !== 'POST') { json(res, { ok: false, message: 'POST required.' }, 405); return }
+      const signal = AbortSignal.timeout(timeoutMs * 12)
       const origin = req.headers.origin
       if (typeof origin === 'string' && origin !== `http://${req.headers.host}` && origin !== `https://${req.headers.host}`) {
         json(res, { ok: false, message: 'Cross-origin updates are refused.' }, 403); return
