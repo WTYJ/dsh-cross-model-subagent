@@ -3,9 +3,8 @@
  * A Client half cannot call Host modules, and this installation exposes no
  * generic bridge for third-party Remote methods. This row therefore serves one
  * narrow route on the plugin's own Host server: it accepts only two fixed
- * actions, validates every page-supplied value, carries no credentials, and
- * delegates installation to DSH's plugin manager so profile files, rollback,
- * and restart reporting stay framework-owned. */
+ * actions and verifies installation requests through DSH Connection. The
+ * plugin manager owns installation, profile files, rollback, and restart reporting. */
 import { REPOSITORY } from './updating.js'
 import { manifestOf, schema } from './installed.js'
 import { applyUpdate, isPinnedSpec, updateStatus } from './updating-host.js'
@@ -104,7 +103,8 @@ export function mountUpdater(ctx, config, { route = ROUTE, registerTool = true }
     path: route,
     async handler(req, res) {
       const signal = AbortSignal.timeout(timeoutMs * 12)
-      // Only the plugin's own page posts here; other methods and origins get no action.
+      // Electron forwards an authenticated request without Origin. Connection
+      // verifies the credentials for installation whether Origin is present or not.
       if (req.method !== 'POST') { json(res, { ok: false, message: 'POST required.' }, 405); return }
       const origin = req.headers.origin
       if (typeof origin === 'string' && origin !== `http://${req.headers.host}` && origin !== `https://${req.headers.host}`) {
@@ -115,6 +115,19 @@ export function mountUpdater(ctx, config, { route = ROUTE, registerTool = true }
         try { payload = JSON.parse(await readBody(req)) } catch (error) { json(res, { ok: false, message: error.message }, 400); return }
         if (!payload || typeof payload !== 'object' || Array.isArray(payload)) { json(res, { ok: false, message: 'The body must be an object.' }, 400); return }
         if (payload.action !== 'check' && payload.action !== 'apply') { json(res, { ok: false, message: 'Unknown action.' }, 400); return }
+        if (payload.action === 'apply') {
+          const connection = ctx.get('connection')
+          if (typeof connection?.admit !== 'function') {
+            return json(res, { ok: false, message: 'DSH authentication is unavailable in this profile.' }, 503)
+          }
+          const admission = connection.admit(req)
+          if (admission.rejection === 401) {
+            return json(res, { ok: false, message: 'Open the authenticated DSH interface and try again.' }, 401)
+          }
+          if (admission.peer?.principal.kind !== 'owner') {
+            return json(res, { ok: false, message: 'Installing updates requires DSH owner access.' }, 403)
+          }
+        }
         const result = await run(payload.action, payload, signal)
         // `cacheable` and the internal error text stay on this side of the wire.
         const { cacheable: _cacheable, ...publicResult } = result

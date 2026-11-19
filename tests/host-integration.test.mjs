@@ -1,7 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { Readable } from 'node:stream'
 import { pathToFileURL } from 'node:url'
 import * as host from '../index.js'
+import { mountUpdater } from '../updating-entry.js'
+import { buildGitSpec } from '../updating.js'
 
 const installed = async name => import(pathToFileURL(host.resolveInstalled(name)).href)
 const { Context } = await installed('@deepseek-ai/cordis')
@@ -129,4 +132,119 @@ test('host composes official native subagent with live defaults and owned scope'
   assert.equal(ctx.tools.get('subagent', fresh), f.original)
   assert.equal(ctx.tools.get('subagent_fork', existing), f.fork)
   assert.equal(ctx.tools.get('cross_model_subagent_configure', existing), undefined)
+})
+
+// Exercise the updater route without invoking an actual plugin installation.
+const PINNED = buildGitSpec('a'.repeat(40))
+const HOST = '127.0.0.1:12345'
+
+function mountUpdate({ connection = { admit: req => req.admission } } = {}) {
+  let handler
+  const installs = []
+  const pluginManager = {
+    async listBundles() { return [] },
+    async updateBundle(name, version, options) {
+      installs.push({ name, version, options })
+      return { result: { application: 'applied' } }
+    },
+  }
+  const services = { connection, pluginManager }
+  mountUpdater({
+    webServer: { register(route) { handler = route.handler } },
+    get: key => services[key],
+    effect: mount => mount(),
+  }, {}, { registerTool: false })
+
+  async function call({ headers = {}, admission, body }) {
+    const req = Readable.from([Buffer.from(JSON.stringify(body))])
+    Object.assign(req, { method: 'POST', headers: { host: HOST, ...headers }, admission })
+    const result = {}
+    await handler(req, {
+      writeHead(status) { result.status = status },
+      end(value) { result.body = JSON.parse(value) },
+    })
+    return result
+  }
+  return { call, installs }
+}
+
+test('check stays available with no credentials while apply is gated', async () => {
+  const u = mountUpdate()
+  // No bundle is installed: updateStatus returns an "installed:false" report
+  // without touching the network, so this proves check runs credential-free.
+  const check = await u.call({ body: { action: 'check' }, admission: { rejection: 401 } })
+  assert.equal(check.status, 200)
+  assert.equal(check.body.action, 'check')
+  assert.equal(check.body.installed, false)
+  assert.equal(u.installs.length, 0, 'check never installs')
+})
+
+test('apply rejects an unauthenticated request with 401 and never installs', async () => {
+  const u = mountUpdate()
+  const r = await u.call({ body: { action: 'apply', version: '0.0.2', spec: PINNED }, admission: { rejection: 401 } })
+  assert.equal(r.status, 401)
+  assert.equal(u.installs.length, 0, 'an unauthenticated apply must not reach updateBundle')
+})
+
+test('apply rejects an authenticated non-owner with 403 and never installs', async () => {
+  const u = mountUpdate()
+  const r = await u.call({ body: { action: 'apply', version: '0.0.2', spec: PINNED }, admission: { peer: { principal: { kind: 'remote' } } } })
+  assert.equal(r.status, 403)
+  assert.equal(u.installs.length, 0, 'a non-owner peer must not reach updateBundle')
+})
+
+test('apply rejects a cross-origin request with 403 and never installs', async () => {
+  const u = mountUpdate()
+  const r = await u.call({
+    headers: { origin: 'https://example.com' },
+    body: { action: 'apply', version: '0.0.2', spec: PINNED },
+    admission: { peer: { principal: { kind: 'owner' } } },
+  })
+  assert.equal(r.status, 403)
+  assert.equal(u.installs.length, 0)
+})
+
+test('apply refuses with 503 when the Connection service is missing', async () => {
+  const u = mountUpdate({ connection: null })
+  const r = await u.call({ body: { action: 'apply', version: '0.0.2', spec: PINNED } })
+  assert.equal(r.status, 503)
+  assert.equal(u.installs.length, 0, 'without a Connection guard the install never proceeds')
+})
+
+test('an owner browser on the same origin reaches the simulated updateBundle', async () => {
+  const u = mountUpdate()
+  const r = await u.call({
+    headers: { origin: `http://${HOST}` },
+    admission: { peer: { principal: { kind: 'owner' } } },
+    body: { action: 'apply', version: '0.0.2', spec: PINNED },
+  })
+  assert.equal(r.status, 200)
+  assert.equal(u.installs.length, 1, 'the owner install is delegated to the plugin manager')
+  assert.equal(u.installs[0].version, '0.0.2')
+  assert.equal(u.installs[0].options.spec, PINNED)
+})
+
+test('an Electron owner request with no Origin reaches the simulated updateBundle', async () => {
+  const u = mountUpdate()
+  const r = await u.call({
+    // Electron strips Origin and forwards a Host-issued cookie; admit() then
+    // returns the owner browser Peer, so a no-Origin install proceeds.
+    headers: {},
+    admission: { peer: { principal: { kind: 'owner' } } },
+    body: { action: 'apply', version: '0.0.2', spec: PINNED },
+  })
+  assert.equal(r.status, 200)
+  assert.equal(u.installs.length, 1)
+  assert.equal(u.installs[0].options.spec, PINNED)
+})
+
+test('an owner install with an unpinned spec fails before the manager is called', async () => {
+  const u = mountUpdate()
+  const r = await u.call({
+    body: { action: 'apply', version: '0.0.2', spec: 'https://github.com/WTYJ/dsh-cross-model-subagent.git' },
+    admission: { peer: { principal: { kind: 'owner' } } },
+  })
+  assert.equal(u.installs.length, 0, 'an unpinned spec never reaches updateBundle')
+  assert.equal(r.body.ok, false)
+  assert.equal(r.status, 502)
 })

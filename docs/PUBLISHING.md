@@ -51,8 +51,9 @@ dsh plugin add https://github.com/WTYJ/dsh-cross-model-subagent.git
 
 ## 5. 更新接口的行为边界
 
-- 页面只调用插件自己的同源路由 `POST /model-delegation/update`，动作只有 `check` 与 `apply`，请求体上限 8 KiB，拒绝跨源请求，不携带凭据。
+- 页面调用同源路由 `POST /model-delegation/update`，支持 `check` 和 `apply`，限制请求体大小为 8 KiB，并拒绝跨源请求。
+- `apply` 通过 DSH Connection 验证当前连接的所有者权限。桌面端和 Web 界面会自动携带已有凭据。检查版本继续支持无需凭据的请求。
 - `check` 读取 `api.github.com` 的最新提交与 `raw.githubusercontent.com` 的 `package.json`，两个请求都有超时与 1 MiB 响应上限；失败只报告原因，不抛异常。
 - `apply` 只接受「版本号 + 固定到 40 位 commit 的仓库地址」；提交必须属于本仓库，否则拒绝。
 - 安装、回滚、重启判定全部由 DSH `pluginManager.updateBundle` 负责，插件不直接改写 Profile 文件。
-- 需要 DSH 提供 `pluginManager` 与 `webServer` 两个服务；缺少任一个时更新区会显示不可用，模型分工本身不受影响。
+- 更新页依赖 DSH 的 `pluginManager` 和 `webServer` 服务。通过页面安装更新还需要 `connection` 提供身份校验。

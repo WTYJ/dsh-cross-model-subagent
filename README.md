@@ -32,6 +32,7 @@ dsh plugin add https://github.com/WTYJ/dsh-cross-model-subagent.git
 
 在启用了 Agent Teams 的会话中，新成员加入时，右上角会出现「团队协作已开始」。弹窗显示主代理和已确认的成员模型。主代理模型会独立加载，成员列表过长时可以滚动查看，模型未确认的成员会在等待结束后隐藏。
 
+- 右上角的刷新图标重新读取主代理和成员模型。刷新期间保留已确认的模型，查询失败时会提示重试。
 - 「打开设置」打开模型分工，并定位到触发弹窗的会话。
 - 右上角 × 临时关闭，下一位新成员加入时会再次弹出。
 - 「不再弹出」关闭后续提示。可在「模型分工 → 团队协作 → 团队协作弹窗」中重新开启。
@@ -51,7 +52,7 @@ GitHub Contents API 和备用 CDN 都按检查到的完整提交读取版本号�
 
 更新区按“当前正在运行的那份副本”检查：Profile 里仍记录旧包名（例如早期的 `@local/dsh-cross-model-subagent`）时也会被识别，不会误报为未安装。
 
-页面通过插件自己的 Host 路由 `POST /model-delegation/update` 调用同一套逻辑：该路由只接受 `check` 与 `apply` 两个动作、限制请求体大小、拒绝跨源请求，并且不携带任何凭据。安装动作同样可以通过工具 `cross_model_subagent_update` 由模型触发。
+设置页通过 Host 路由 `POST /model-delegation/update` 检查或安装更新。安装请求必须通过当前 DSH 实例的身份校验，并具备所有者权限。桌面端和 Web 界面会自动使用已有的 DSH 凭据。检查版本仍可直接调用，路由对两种操作都限制请求体大小并拒绝跨源请求。安装也可以通过 DSH 工具 `cross_model_subagent_update` 触发。
 
 ## 实现与范围
 

@@ -45,6 +45,16 @@ window.__ModuleLoader__.load({
     }
     const isDirty = (edit) => !!edit && JSON.stringify(edit.value) !== JSON.stringify(edit.baseline)
     const acceptedWrite = (result) => result === true
+    function routeLabel(route) {
+      return route?.provider && route?.model ? route.provider + ' / ' + route.model : ''
+    }
+    function teamMemberBatch(ids, data, known) {
+      if (!data?.ok) return { confirmed: [], waiting: [], failed: true }
+      const requested = new Set(ids)
+      const confirmed = (data.members ?? []).filter(member => requested.has(member.id) && routeLabel(member.route))
+      for (const member of confirmed) requested.delete(member.id)
+      return { confirmed, waiting: [...requested].filter(id => !known.has(id)), failed: false }
+    }
     function observeTeam(previous, enabled, catalog) {
       if (typeof enabled !== 'boolean' || !Array.isArray(catalog)) return previous
       if (!previous || !enabled) return { seen: new Set(catalog.map(row => row.id)), announced: false, members: [] }
@@ -95,6 +105,7 @@ window.__ModuleLoader__.load({
         teamNoticeMain: '主代理', teamNoticeTitle: '团队协作已开始', teamNoticeSettings: '打开设置', teamNoticeClose: '临时关闭提示', teamNoticeMute: '不再弹出', teamNoticeToggle: '团队协作开始时弹出模型提示（取消勾选即永久关闭）',
         teamNoticePreference: '团队协作弹窗', teamNoticePreferenceHint: '关闭后可在这里重新开启。', teamNoticeList: '团队成员模型',
         teamNoticeWaiting: '等待模型确认…', teamNoticeUnavailable: '未能读取模型', teamNoticeActions: '可前往模型分工设置。', teamNoticeNavError: '暂时无法打开模型分工设置。',
+        teamNoticeRefresh: '刷新模型', teamNoticeRefreshing: '正在刷新模型…', teamNoticeRefreshFailed: '部分模型信息暂时无法读取，请点击刷新重试。',
         runtimeNext: '下次普通委派', runtimeSession: '会话覆盖', runtimeGlobal: '全局默认', runtimeParent: '沿用父级模型',
         runtimeClosed: '打开该会话后检查是否生效。', runtimeUnsupported: '该会话的预设使用原生委派行为。',
         runtimeNoTool: '该会话没有普通子代理工具。', runtimeMountFailed: '模型覆盖加载失败，委派由原生工具处理。',
@@ -156,6 +167,7 @@ window.__ModuleLoader__.load({
         teamNoticeMain: 'Main agent', teamNoticeTitle: 'Agent teamwork started', teamNoticeSettings: 'Open settings', teamNoticeClose: 'Dismiss for now', teamNoticeMute: 'Don’t show again', teamNoticeToggle: 'Show model notice when teamwork starts (uncheck to turn off)',
         teamNoticePreference: 'Team notifications', teamNoticePreferenceHint: 'You can turn them back on here at any time.', teamNoticeList: 'Team member models',
         teamNoticeWaiting: 'Waiting for model information…', teamNoticeUnavailable: 'Model unavailable', teamNoticeActions: 'Model delegation settings are available.', teamNoticeNavError: 'Could not open model delegation settings.',
+        teamNoticeRefresh: 'Refresh models', teamNoticeRefreshing: 'Refreshing models…', teamNoticeRefreshFailed: 'Some model information could not be loaded. Select Refresh models to try again.',
         runtimeNext: 'Next ordinary delegation', runtimeSession: 'Session override', runtimeGlobal: 'Global default', runtimeParent: 'Parent model',
         runtimeClosed: 'Open the session to check whether the override is active.', runtimeUnsupported: 'This session’s preset uses native delegation behavior.',
         runtimeNoTool: 'This session has no ordinary subagent tool.', runtimeMountFailed: 'The model override failed to load. The native tool handles delegation.',
@@ -322,6 +334,7 @@ window.__ModuleLoader__.load({
       check: ['M5 12.5l4.5 4.5L19 7'],
       info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 11v5', 'M12 8h.01'],
       refresh: ['M20 11a8 8 0 1 0-.7 4.5', 'M20 5v6h-6'],
+      close: ['M4 4l16 16M20 4L4 20'],
       copy: ['M9 9h10v10H9z', 'M5 15V5h10'],
       download: ['M12 4v10', 'M7 11l5 5 5-5', 'M5 20h14'],
     }
@@ -968,10 +981,6 @@ window.__ModuleLoader__.load({
       return null
     }
 
-    function routeLabel(route) {
-      return route?.provider && route?.model ? route.provider + ' / ' + route.model : ''
-    }
-
     function workerLabel(t, { route, source }, parentRoute) {
       const origin = t(source === 'session' ? 'runtimeSession' : source === 'global' ? 'runtimeGlobal' : 'runtimeParent')
       const model = routeLabel(route || parentRoute)
@@ -1000,43 +1009,54 @@ window.__ModuleLoader__.load({
       return null
     }
 
-    function useTeamMemberModels(sessionId, members) {
-      const [snapshot, setSnapshot] = useState(() => ({ modelById: new Map(), settledKey: null }))
-      const known = useRef(new Map())
-      const idsKey = JSON.stringify(members.filter(row => row.mode !== 'external').map(row => row.id))
+    function useTeamParentModel(sessionId, refreshKey) {
+      const [result, setResult] = useState(null)
       useEffect(() => {
         const controller = new AbortController()
-        const unresolved = new Set(JSON.parse(idsKey).filter(id => !known.current.has(id)))
+        fetchModelSummary(STATUS_ROUTE, new URLSearchParams({ sessionId }), controller.signal).then(data => {
+          if (controller.signal.aborted) return
+          const model = data?.ok ? routeLabel(data.parentRoute) : ''
+          setResult(previous => ({ refreshKey, model: model || previous?.model || '', failed: !data?.ok }))
+        })
+        return () => controller.abort()
+      }, [sessionId, refreshKey])
+      const pending = result?.refreshKey !== refreshKey
+      return { model: result?.model, pending, failed: !pending && result.failed }
+    }
+
+    function useTeamMemberModels(sessionId, members, refreshKey) {
+      const [snapshot, setSnapshot] = useState(() => ({ modelById: new Map(), key: null }))
+      const known = useRef(new Map())
+      const key = JSON.stringify([refreshKey, members.filter(row => row.mode !== 'external').map(row => row.id)])
+      useEffect(() => {
+        const controller = new AbortController()
+        const [, ids] = JSON.parse(key)
         let timer
         let attempts = 0
-        async function poll() {
-          const ids = [...unresolved]
-          for (let index = 0; index < ids.length; index += 20) {
+        let failed = false
+        async function poll(requestedIds) {
+          const waiting = []
+          for (let index = 0; index < requestedIds.length; index += 20) {
+            const batch = requestedIds.slice(index, index + 20)
             const query = new URLSearchParams({ sessionId })
-            for (const id of ids.slice(index, index + 20)) query.append('memberId', id)
+            for (const id of batch) query.append('memberId', id)
             const data = await fetchModelSummary(TEAM_MODELS_ROUTE, query, controller.signal)
             if (controller.signal.aborted) return
-            if (data?.enabled === false) {
-              unresolved.clear()
-              break
-            }
-            if (!data?.ok) continue
-            const previousSize = known.current.size
-            for (const member of data.members ?? []) {
-              if (routeLabel(member.route) && unresolved.delete(member.id)) known.current.set(member.id, member.route)
-            }
-            if (known.current.size !== previousSize) {
-              const modelById = new Map(known.current)
-              setSnapshot(previous => ({ ...previous, modelById }))
-            }
+            if (data?.ok && data.enabled === false) { waiting.length = 0; break }
+            const result = teamMemberBatch(batch, data, known.current)
+            failed ||= result.failed
+            for (const member of result.confirmed) known.current.set(member.id, member.route)
+            waiting.push(...result.waiting)
           }
-          if (unresolved.size > 0 && ++attempts < 8) timer = setTimeout(poll, 1200)
-          else setSnapshot(previous => ({ ...previous, settledKey: idsKey }))
+          const pending = waiting.length > 0 && ++attempts < 8
+          setSnapshot({ key, waiting: new Set(pending ? waiting : []), failed, modelById: new Map(known.current) })
+          if (pending) timer = setTimeout(() => { void poll(waiting) }, 1200)
         }
-        void poll()
+        void poll(ids)
         return () => { controller.abort(); clearTimeout(timer) }
-      }, [sessionId, idsKey])
-      return { modelById: snapshot.modelById, pending: snapshot.settledKey !== idsKey }
+      }, [sessionId, key])
+      const checked = snapshot.key === key
+      return { modelById: snapshot.modelById, checked, waiting: checked ? snapshot.waiting : null, failed: checked && snapshot.failed }
     }
     function useTeamNoticePreference(scope, t) {
       const snapshot = useSource(scope)
@@ -1076,9 +1096,11 @@ window.__ModuleLoader__.load({
 
     function TeamNotice({ t, notice, close, openSettings, noticeScope }) {
       const { sessionId, members } = notice
-      const parentStatus = useDelegationStatus(sessionId)
-      const parentModel = parentStatus?.data?.ok ? routeLabel(parentStatus.data.parentRoute) : ''
-      const { modelById, pending } = useTeamMemberModels(sessionId, members)
+      const [refreshKey, setRefreshKey] = useState(0)
+      const parent = useTeamParentModel(sessionId, refreshKey)
+      const { modelById, checked, waiting, failed } = useTeamMemberModels(sessionId, members, refreshKey)
+      const refreshing = refreshKey > 0 && (parent.pending || !checked)
+      const loadFailed = parent.failed || failed
 
       const id = useId()
       const card = useRef(null)
@@ -1106,18 +1128,26 @@ window.__ModuleLoader__.load({
       const row = (label, model, key) => h('div', { key, style: { display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 3fr)', gap: '0.5rem' } },
         h('dt', { style: { fontWeight: 600, minWidth: 0 } }, label),
         h('dd', { style: { margin: 0, minWidth: 0, color: C.muted } }, model))
+      const headerButton = { ...S.button, minInlineSize: '2.25rem', padding: '0 0.5rem' }
       return h('section', { ref: card, popover: 'manual', style: position, 'aria-labelledby': id,
         onKeyDown: event => { if (event.key === 'Escape' && !preference.saving) { event.preventDefault(); event.stopPropagation(); dismiss() } } },
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' } },
           h('h2', { id, style: S.teamNoticeTitle }, t('teamNoticeTitle')),
-          h('button', { type: 'button', onClick: dismiss, disabled: preference.saving, 'aria-label': t('teamNoticeClose'),
-            title: t('teamNoticeClose'), style: { ...S.button, flex: '0 0 auto', fontSize: '1.125rem', padding: '0 0.5rem' } }, '×')),
-        h('dl', { tabIndex: 0, 'aria-label': t('teamNoticeList'), style: { display: 'grid', gap: '0.375rem', margin: '0.75rem 0',
-          maxBlockSize: 'min(10rem, 28vh)', overflowY: 'auto', overscrollBehavior: 'contain', paddingInlineEnd: '0.25rem' } },
-          row(t('teamNoticeMain'), parentModel || t(parentStatus ? 'teamNoticeUnavailable' : 'teamNoticeWaiting'), 'lead'),
+          h('div', { style: { display: 'flex', flex: '0 0 auto', gap: '0.375rem' } },
+            h('button', { type: 'button', 'aria-label': t('teamNoticeRefresh'), 'aria-disabled': refreshing,
+              title: t(refreshing ? 'teamNoticeRefreshing' : 'teamNoticeRefresh'),
+              style: { ...headerButton, ...(refreshing ? S.disabled : {}) },
+              onClick: () => { if (!refreshing) setRefreshKey(key => key + 1) } }, h(Icon, { name: 'refresh', size: 18 })),
+            h('button', { type: 'button', onClick: dismiss, disabled: preference.saving, 'aria-label': t('teamNoticeClose'),
+              title: t('teamNoticeClose'), style: headerButton }, h(Icon, { name: 'close', size: 18 })))),
+        h('dl', { tabIndex: 0, 'aria-label': t('teamNoticeList'), 'aria-busy': refreshing,
+          style: { display: 'grid', gap: '0.375rem', margin: '0.75rem 0',
+            maxBlockSize: 'min(10rem, 28vh)', overflowY: 'auto', overscrollBehavior: 'contain', paddingInlineEnd: '0.25rem' } },
+          row(t('teamNoticeMain'), parent.model || t(parent.pending ? 'teamNoticeWaiting' : 'teamNoticeUnavailable'), 'lead'),
           members.map(member => {
             const model = routeLabel(modelById.get(member.id))
-            if (!model && (!pending || member.mode === 'external')) return null
+            const pending = member.mode !== 'external' && (!waiting || waiting.has(member.id))
+            if (!model && !pending) return null
             return row(member.name || member.label || member.id.replace(/^session-/, '').slice(0, 8),
               model || t('teamNoticeWaiting'), member.id)
           })),
@@ -1127,7 +1157,8 @@ window.__ModuleLoader__.load({
             else setNavigationFailed(true)
           } }, t('teamNoticeSettings')) : null,
           h(Button, { onClick: mute, disabled: preference.saving || !preference.writable }, t('teamNoticeMute'))),
-        h(LiveNote, { error: true, text: preference.error || (navigationFailed ? t('teamNoticeNavError') : '') }))
+        h(LiveNote, { error: true,
+          text: preference.error || (navigationFailed ? t('teamNoticeNavError') : '') || (loadFailed ? t('teamNoticeRefreshFailed') : '') }))
     }
 
     function TeamNoticeOverlay({ t, notifications, openSettings, noticeScope }) {

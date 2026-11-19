@@ -6,7 +6,7 @@ import vm from 'node:vm'
 // Evaluate only the pure data block. No module loader, React, browser, or DOM is simulated.
 const source = readFileSync(new URL('./client.js', import.meta.url), 'utf8')
 const pure = source.split('// BEGIN PURE HELPERS')[1].split('// END PURE HELPERS')[0]
-const helpers = vm.runInNewContext(`(() => { ${pure}; return { routeKey, routeFromKey, sessionRows, defaultValue, sessionValue, replaceSession, beginEdit, isDirty, acceptedWrite, observeTeam, teamNotifications } })()`)
+const helpers = vm.runInNewContext(`(() => { ${pure}; return { routeKey, routeFromKey, sessionRows, defaultValue, sessionValue, replaceSession, beginEdit, isDirty, acceptedWrite, observeTeam, teamNotifications, teamMemberBatch } })()`)
 const plain = value => JSON.parse(JSON.stringify(value))
 
 test('client session rows use id, keep titles/current status and filter subagents', () => {
@@ -48,6 +48,24 @@ test('temporary dismissal waits for a new member while muting baselines unseen m
   assert.equal(notice.getSnapshot(), null)
   notice.observe('root', true, [a, b, c, d])
   assert.deepEqual(plain(notice.getSnapshot().members), [d])
+})
+
+test('refresh distinguishes a failed member batch from models still awaiting confirmation', () => {
+  const previousRoute = { provider: 'p', model: 'previous' }
+  const newRoute = { provider: 'p', model: 'new' }
+  const known = new Map([['cached', previousRoute]])
+  const ids = ['cached', 'pending', 'confirmed']
+  assert.deepEqual(plain(helpers.teamMemberBatch(ids, null, known)), {
+    failed: true, waiting: [], confirmed: [],
+  })
+  assert.deepEqual(plain(helpers.teamMemberBatch(ids, { ok: true, members: [
+    { id: 'cached', route: null }, { id: 'confirmed', route: newRoute }, { id: 'unrequested', route: newRoute },
+  ] }, known)), {
+    failed: false, waiting: ['pending'], confirmed: [{ id: 'confirmed', route: newRoute }],
+  })
+  assert.deepEqual(plain(helpers.teamMemberBatch(ids, { ok: true, members: [{ id: 'cached', route: newRoute }] }, known).confirmed),
+    [{ id: 'cached', route: newRoute }])
+  assert.deepEqual(known.get('cached'), previousRoute)
 })
 
 test('initially missing list is safe and does not claim a session exists', () => {
