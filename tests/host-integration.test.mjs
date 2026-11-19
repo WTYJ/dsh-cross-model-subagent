@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { Readable } from 'node:stream'
 import { pathToFileURL } from 'node:url'
 import * as host from '../index.js'
-import { mountUpdater } from '../updating-entry.js'
+import { candidateNames, mountUpdater } from '../updating-entry.js'
 import { buildGitSpec } from '../updating.js'
 
 const installed = async name => import(pathToFileURL(host.resolveInstalled(name)).href)
@@ -211,6 +211,12 @@ test('apply refuses with 503 when the Connection service is missing', async () =
   assert.equal(u.installs.length, 0, 'without a Connection guard the install never proceeds')
 })
 
+test('the updater looks up the new package name before either historical name', () => {
+  assert.deepEqual(candidateNames(), [
+    'dsh-cross-model-subagent', '@wtyj/dsh-cross-model-subagent', '@local/dsh-cross-model-subagent',
+  ])
+})
+
 test('an owner browser on the same origin reaches the simulated updateBundle', async () => {
   const u = mountUpdate()
   const r = await u.call({
@@ -220,6 +226,7 @@ test('an owner browser on the same origin reaches the simulated updateBundle', a
   })
   assert.equal(r.status, 200)
   assert.equal(u.installs.length, 1, 'the owner install is delegated to the plugin manager')
+  assert.equal(u.installs[0].name, 'dsh-cross-model-subagent')
   assert.equal(u.installs[0].version, '0.0.2')
   assert.equal(u.installs[0].options.spec, PINNED)
 })

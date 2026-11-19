@@ -7,7 +7,7 @@
  * plugin manager owns installation, profile files, rollback, and restart reporting. */
 import { REPOSITORY } from './updating.js'
 import { manifestOf, schema } from './installed.js'
-import { applyUpdate, isPinnedSpec, updateStatus } from './updating-host.js'
+import { PACKAGE_NAME, applyUpdate, isPinnedSpec, updateStatus } from './updating-host.js'
 
 const z = schema()
 
@@ -26,19 +26,9 @@ const SELF = manifestOf(import.meta.url)
 export const ROUTE = '/model-delegation/update'
 const MAX_BODY = 8 * 1024
 
-/** Git repository name, kept as the last candidate so upgrading from a copy that
- * recorded no earlier names still resolves. */
-const REPOSITORY_NAME = '@wtyj/dsh-cross-model-subagent'
-
-/** Package names that may hold this plugin in a profile, most specific first.
- *
- * The manifest name is the one this copy reports itself as. A profile that still
- * records an earlier name is checked too, because the running copy is the one the
- * user is looking at — reporting "not installed" for it would be wrong. The Git
- * repository name stays last so upgrading from a renamed copy still resolves.
- */
+/** Package names to look up, with the running name before historical names. */
 export function candidateNames(self = SELF) {
-  const names = [self?.name, ...(Array.isArray(self?.previousNames) ? self.previousNames : []), REPOSITORY_NAME]
+  const names = [self?.name, ...(Array.isArray(self?.previousNames) ? self.previousNames : []), PACKAGE_NAME]
   return [...new Set(names.filter(name => typeof name === 'string' && name.length > 0))]
 }
 
@@ -87,10 +77,14 @@ export function mountUpdater(ctx, config, { route = ROUTE, registerTool = true }
     if (action === 'check') {
       const result = await updateStatus(manager, names, { signal, timeoutMs, cache, force: payload?.force === true })
       if (result.cacheable) cache = { at: Date.now(), payload: { ...result } }
+      if (result.installed && result.name !== PACKAGE_NAME) {
+        return { ...result, action, canSelfUpdate: false, spec: null,
+          reason: `This copy uses the former package name ${result.name}. Reinstall from ${REPOSITORY.url} to switch to ${PACKAGE_NAME}.` }
+      }
       return { ...result, action }
     }
     // A pinned commit is the only target: the manager refuses anything else anyway.
-    const request = { version: payload?.version, spec: payload?.spec, name: REPOSITORY_NAME }
+    const request = { version: payload?.version, spec: payload?.spec, name: PACKAGE_NAME }
     if (typeof request.version !== 'string' || typeof request.spec !== 'string' || !isPinnedSpec(request.spec)) {
       return { ok: false, action, message: 'Send a version and its pinned commit returned by check.' }
     }

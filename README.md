@@ -3,7 +3,7 @@
 为 DSH 内置 standard / ptc / cordis 预设设置默认执行模型。主代理负责规划与审查，普通 `subagent` 可以使用另一个模型执行任务。启用 Agent Teams 后，新成员加入时会弹窗显示主代理和已确认的成员模型。设置页提供版本检查与一键更新。
 
 - 仓库：<https://github.com/WTYJ/dsh-cross-model-subagent>
-- 安装包名：`@wtyj/dsh-cross-model-subagent`
+- 安装包名：`dsh-cross-model-subagent`
 
 ## 安装
 
@@ -13,7 +13,7 @@
 dsh plugin add https://github.com/WTYJ/dsh-cross-model-subagent.git
 ```
 
-也可以在 **Plugins → Add plugin** 中填入同一个 Git 地址。
+也可以在 **Plugins → Add plugin** 中填入同一个 Git 地址。旧包名的安装需要重新安装才能切换，参见[迁移说明](docs/PUBLISHING.md#4-迁移旧包名或本地链接安装)。
 
 ## 使用
 

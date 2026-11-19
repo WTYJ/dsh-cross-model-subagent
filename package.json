@@ -1,6 +1,6 @@
 {
-  "name": "@wtyj/dsh-cross-model-subagent",
-  "version": "0.2.1",
+  "name": "dsh-cross-model-subagent",
+  "version": "0.2.2",
   "private": true,
   "type": "module",
   "repository": { "type": "git", "url": "git+https://github.com/WTYJ/dsh-cross-model-subagent.git" },
@@ -8,6 +8,7 @@
   "license": "MIT",
   "description": "Set global or per-session models for native subagents and see confirmed agent models when new Agent Teams members join. Check for and install updates from the settings page.",
   "previousNames": [
+    "@wtyj/dsh-cross-model-subagent",
     "@local/dsh-cross-model-subagent"
   ],
   "exports": {

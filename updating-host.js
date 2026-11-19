@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { REPOSITORY, buildGitSpec, checkForUpdate, selfUpdateBlocker } from './updating.js'
 import { readGitRelease } from './git-update.js'
 
-export const PACKAGE_NAME = '@wtyj/dsh-cross-model-subagent'
+export const PACKAGE_NAME = 'dsh-cross-model-subagent'
 
 /** Read this bundle's own version from beside the running module. */
 export function installedVersion(moduleUrl = import.meta.url) {

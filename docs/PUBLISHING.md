@@ -39,15 +39,15 @@ dsh plugin add https://github.com/WTYJ/dsh-cross-model-subagent.git
 
 **后续更新**：打开「模型分工」设置页底部的「版本与更新」，页面自动读取仓库最新提交与版本号；显示新版本时点「安装 vX」。安装由 DSH 插件管理器执行，目标固定到检查过的那一次提交，失败会回滚，需要重启时页面会说明。
 
-## 4. 从本地链接安装迁移
+## 4. 迁移旧包名或本地链接安装
 
-`link:` 或路径安装的副本无法原地升级。迁移一次即可：
+正式包名为 `dsh-cross-model-subagent`。DSH 校验更新前后的包名，从 `@wtyj/dsh-cross-model-subagent` 或 `@local/dsh-cross-model-subagent` 迁移时需要重新安装。本地链接或路径安装也可按以下步骤迁移。
 
-1. 在 **Plugins** 中移除原来的本地安装（或 `dsh plugin remove @local/dsh-cross-model-subagent`）。
-2. 用上面的 Git 地址重新安装。
-3. 之后页内「版本与更新」可以直接一键升级。
+1. 记下当前模型分工设置，再在 **Plugins** 中移除旧包。
+2. 新包名随 GitHub 版本发布后，用上面的 Git 地址安装 `dsh-cross-model-subagent`。
+3. 检查全局默认和会话覆盖。插件继续使用 `cross-model-subagent` 和 `cross-model-subagent-updates` 两个配置行 ID。如果移除旧包时清除了配置，按第一步的记录还原。
 
-包名已从 `@local/dsh-cross-model-subagent` 改为 `@wtyj/dsh-cross-model-subagent`，迁移后原配置文件 `cordis.patch.yml` 里的行 id（`cross-model-subagent`）保持不变，配置值仍会被读取；如 Profile 里残留旧行，请一并删除。
+迁移后的 Git 安装可在「版本与更新」中继续检查和安装后续版本。
 
 ## 5. 更新接口的行为边界
 
