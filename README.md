@@ -1,6 +1,6 @@
 # 模型分工
 
-为 DSH 内置 standard / ptc / cordis 预设设置默认执行模型：主 agent 负责规划与审查，普通 `subagent` 可以使用另一个已配置的模型执行任务。管理页还提供版本检查与一键更新。
+为 DSH 内置 standard / ptc / cordis 预设设置默认执行模型。主代理负责规划与审查，普通 `subagent` 可以使用另一个模型执行任务。启用 Agent Teams 后，新成员加入时会弹窗显示主代理和已确认的成员模型。设置页提供版本检查与一键更新。
 
 - 仓库：<https://github.com/WTYJ/dsh-cross-model-subagent>
 - 安装包名：`@wtyj/dsh-cross-model-subagent`
@@ -27,6 +27,14 @@ dsh plugin add https://github.com/WTYJ/dsh-cross-model-subagent.git
 管理页按模型设置与团队协作分组，优先展示会话覆盖；布局跟随面板实际宽度（容器查询），宽时并列、窄时单列。会话模式的三项选择以可直接点选的单选项呈现；会话选项附短 ID 区分同名会话，完整 ID 可展开查看；技术说明收在「适用范围与说明」。键盘焦点环、触控点击区域（触屏不小于 48px）与表单错误提示已按无障碍指南处理。
 
 默认模型和“允许 agent 显式选择哪些模型”是不同机制。本插件配置的是工具的用户默认值，不追加、替换或放宽 `subagent/model-selection-policy`。`subagent` 不填 provider/model 时使用本插件默认；显式填写时仍经过原生授权检查。`subagent_fork` 不作覆盖，继续使用原生父模型及上下文继承行为，适合交给主模型审查。
+
+## 团队协作模型提示
+
+在启用了 Agent Teams 的会话中，新成员加入时，右上角会出现「团队协作已开始」。弹窗显示主代理和已确认的成员模型。主代理模型会独立加载，成员列表过长时可以滚动查看，模型未确认的成员会在等待结束后隐藏。
+
+- 「打开设置」打开模型分工，并定位到触发弹窗的会话。
+- 右上角 × 临时关闭，下一位新成员加入时会再次弹出。
+- 「不再弹出」关闭后续提示。可在「模型分工 → 团队协作 → 团队协作弹窗」中重新开启。
 
 ## 检查更新与升级
 
@@ -61,7 +69,9 @@ Host 在每个根 agent 的作用域中复用当前 DSH 安装的官方 `@deepse
 
 ## 验证
 
-`tests/routing.test.mjs` 覆盖配置选择、修改、清除和旧数据处理；`tests/host-integration.test.mjs` 使用实际 Cordis、工具注册表和官方委派代码，控制外部 LLM/activation 边界，验证已有会话实时切换、显式授权、fork 不变和卸载恢复；`tests/updating.test.mjs` 与 `tests/host-update.test.mjs` 覆盖版本比较、Git 副本判定、空仓库与网络失败分支；`tests/catalog-validation.test.mjs` 覆盖模型目录校验；`client-data.test.mjs` 测试前端纯数据逻辑。前两组需要 DSH 安装运行时（`ELECTRON_RUN_AS_NODE=1` 的安装可执行文件），GitHub Actions 里只跑不依赖安装的三组。
+`tests/routing.test.mjs` 覆盖配置选择、修改、清除和旧数据处理。`tests/host-integration.test.mjs` 用实际 Cordis 和官方委派代码验证已有会话实时切换、显式授权、fork 和卸载恢复。`tests/catalog-validation.test.mjs` 覆盖模型目录校验，更新测试覆盖版本比较、Git 安装来源和网络失败分支。
+
+`tests/team-models.test.mjs` 覆盖实际模型来源、已结束成员查询和 Electron 请求的身份校验。`client-data.test.mjs` 覆盖通知触发和关闭行为，`client-copy.test.mjs` 校验中英文案。GitHub Actions 运行无需安装 DSH 的测试，完整套件使用安装版 DSH 的运行时。
 
 外部模型真实调用、真实 GitHub 往返与真实页面视觉应分别验证，安装成功不等于这些验证已完成。
 

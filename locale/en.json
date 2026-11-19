@@ -1,7 +1,6 @@
 {
   "meta": {
     "title": "Model delegation",
-    "description": "Choose the model native subagents run on: set it per session or as a global default, so the main agent and its subagents can use different models. The settings page also checks for and installs newer releases.",
-    "detail": "docs/DETAIL.md"
+    "description": "Open Model delegation in the sidebar to set a global or per-session model for ordinary subagents. When a new member joins a session with Agent Teams enabled, the notice shows the main agent’s model and confirmed member models. Open settings takes you to that session. If you choose Don’t show again, you can restore the notice under Team notifications. The settings page also checks for and installs new releases."
   }
 }

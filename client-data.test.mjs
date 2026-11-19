@@ -6,7 +6,7 @@ import vm from 'node:vm'
 // Evaluate only the pure data block. No module loader, React, browser, or DOM is simulated.
 const source = readFileSync(new URL('./client.js', import.meta.url), 'utf8')
 const pure = source.split('// BEGIN PURE HELPERS')[1].split('// END PURE HELPERS')[0]
-const helpers = vm.runInNewContext(`(() => { ${pure}; return { routeKey, routeFromKey, sessionRows, defaultValue, sessionValue, replaceSession, beginEdit, isDirty, acceptedWrite } })()`)
+const helpers = vm.runInNewContext(`(() => { ${pure}; return { routeKey, routeFromKey, sessionRows, defaultValue, sessionValue, replaceSession, beginEdit, isDirty, acceptedWrite, observeTeam, teamNotifications } })()`)
 const plain = value => JSON.parse(JSON.stringify(value))
 
 test('client session rows use id, keep titles/current status and filter subagents', () => {
@@ -16,6 +16,40 @@ test('client session rows use id, keep titles/current status and filter subagent
   } })
   assert.deepEqual(plain(rows), [{ id: 'a', title: 'Conversation', current: true }, { id: 'b', title: 'Other', current: false }])
 })
+test('team notices ignore the loaded catalog and collect only newly started members', () => {
+  const old = { id: 'old' }, a = { id: 'a' }, b = { id: 'b' }
+  const baseline = helpers.observeTeam(null, true, [old])
+  assert.equal(baseline.announced, false)
+  assert.equal(helpers.observeTeam(baseline, true, [old]), baseline)
+  const first = helpers.observeTeam(baseline, true, [old, a])
+  assert.equal(first.announced, true)
+  assert.deepEqual(plain(first.members), [a])
+  const expanded = helpers.observeTeam(first, true, [old, a, b])
+  assert.deepEqual(plain(expanded.members), [a, b])
+  const disabled = helpers.observeTeam(expanded, false, [old, a, b])
+  assert.equal(disabled.announced, false)
+  assert.equal(helpers.observeTeam(disabled, true, [old, a, b]), disabled)
+  assert.equal(helpers.observeTeam(expanded, undefined, undefined), expanded)
+})
+
+test('temporary dismissal waits for a new member while muting baselines unseen members', () => {
+  const notice = helpers.teamNotifications()
+  const a = { id: 'a' }, b = { id: 'b' }, c = { id: 'c' }, d = { id: 'd' }
+  notice.observe('root', true, [])
+  notice.observe('root', true, [a])
+  notice.dismiss('root')
+  notice.observe('root', true, [a])
+  assert.equal(notice.getSnapshot(), null)
+  notice.observe('root', true, [a, b])
+  assert.deepEqual(plain(notice.getSnapshot().members), [a, b])
+  notice.observe('root', false, [a, b, c])
+  assert.equal(notice.getSnapshot(), null)
+  notice.observe('root', true, [a, b, c])
+  assert.equal(notice.getSnapshot(), null)
+  notice.observe('root', true, [a, b, c, d])
+  assert.deepEqual(plain(notice.getSnapshot().members), [d])
+})
+
 test('initially missing list is safe and does not claim a session exists', () => {
   assert.deepEqual(plain(helpers.sessionRows(undefined)), [])
 })

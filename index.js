@@ -6,7 +6,7 @@
 import { pathToFileURL } from 'node:url'
 import { resolveInstalled, schema } from './installed.js'
 import { snapshotSettings, resolveDefault, checkedRoute, updateSettings } from './routing.js'
-import { registerStatusRoute } from './status-web.js'
+import { registerStatusRoute, registerTeamModelsRoute } from './status-web.js'
 
 const z = schema()
 const nativeTool = await import(pathToFileURL(resolveInstalled('@deepseek-ai/dsh-tool-subagent')).href)
@@ -27,6 +27,7 @@ export const Config = z.object({
     model: z.string().default(''),
   })).default([]).volatile(),
   forceAgentTeams: z.boolean().default(false).volatile(),
+  muteTeamNotice: z.boolean().default(false).volatile(),
   // Preserve v1 configuration without converting a multi-route allowlist into
   // an arbitrary default. The UI explicitly identifies this as legacy data.
   sessionRoutesJson: z.string().default('{}').volatile(),
@@ -168,6 +169,7 @@ export async function apply(ctx, config) {
   }
 
   registerStatusRoute(ctx, id => status(null, id))
+  registerTeamModelsRoute(ctx)
   ctx.tools.register({
     name: 'cross_model_subagent_status',
     description: 'Read the configured default worker model and actual native subagent override for the current root session (or a supplied sessionId). Distinguishes default routing from explicit-model authorization. Does not change configuration.',

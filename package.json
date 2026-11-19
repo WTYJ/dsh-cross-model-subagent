@@ -1,12 +1,12 @@
 {
   "name": "@wtyj/dsh-cross-model-subagent",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "repository": { "type": "git", "url": "git+https://github.com/WTYJ/dsh-cross-model-subagent.git" },
   "homepage": "https://github.com/WTYJ/dsh-cross-model-subagent",
   "license": "MIT",
-  "description": "Choose the model native subagents run on: set it per session or as a global default, so the main agent and its subagents can use different models. The settings page also checks for and installs newer releases.",
+  "description": "Set global or per-session models for native subagents and see confirmed agent models when new Agent Teams members join. Check for and install updates from the settings page.",
   "previousNames": [
     "@local/dsh-cross-model-subagent"
   ],
@@ -43,6 +43,7 @@
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-layout",
         "@deepseek-ai/dsh-api-remotes"
       ]
     }

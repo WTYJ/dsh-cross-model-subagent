@@ -21,5 +21,6 @@ jobs:
           node --check updating.js
           node --check updating-host.js
           node --check updating-entry.js
-      - name: Pure tests (no DSH installation required)
-        run: node --test tests/updating.test.mjs tests/host-update.test.mjs tests/update-status.test.mjs tests/update-cache.test.mjs client-data.test.mjs client-copy.test.mjs
+          node --check status-web.js
+      - name: Tests that do not require a DSH installation
+        run: node --test tests/updating.test.mjs tests/host-update.test.mjs tests/update-status.test.mjs tests/update-cache.test.mjs tests/team-models.test.mjs client-data.test.mjs client-copy.test.mjs

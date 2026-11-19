@@ -16,7 +16,7 @@ const sandbox = {}
 vm.runInNewContext(source.slice(start, end).replace('const dict = {', 'dict = {'), sandbox)
 const dict = sandbox.dict
 
-const used = [...new Set([...source.matchAll(/t\('([A-Za-z]+)'\)/g)].map((match) => match[1]))]
+const used = [...new Set([...source.matchAll(/(?<![\w$.])t\('([A-Za-z]+)'\)/g)].map((match) => match[1]))]
 
 test('the client factory registers under the bundle manifest name', () => {
   const manifest = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))

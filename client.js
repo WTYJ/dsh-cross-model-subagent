@@ -6,6 +6,7 @@ window.__ModuleLoader__.load({
     const { useState, useEffect, useCallback, useMemo, useRef, useId } = React
     const NS = 'crossModelSubagent'
     const CONFIG = 'cross-model-subagent'
+    const TEAM_NOTICE_CONFIG = CONFIG
     // Scoped class prefix: every selector below is nested under this id so nothing leaks to the DSH shell.
     const ROOT = 'cms-panel'
 
@@ -44,6 +45,39 @@ window.__ModuleLoader__.load({
     }
     const isDirty = (edit) => !!edit && JSON.stringify(edit.value) !== JSON.stringify(edit.baseline)
     const acceptedWrite = (result) => result === true
+    function observeTeam(previous, enabled, catalog) {
+      if (typeof enabled !== 'boolean' || !Array.isArray(catalog)) return previous
+      if (!previous || !enabled) return { seen: new Set(catalog.map(row => row.id)), announced: false, members: [] }
+      const added = catalog.filter(row => !previous.seen.has(row.id))
+      if (added.length === 0) return previous
+      return { seen: new Set([...previous.seen, ...added.map(row => row.id)]), announced: true,
+        members: [...previous.members, ...added] }
+    }
+    function teamNotifications() {
+      const observers = new Map()
+      const listeners = new Set()
+      let current = null
+      function publish(value) {
+        current = value
+        for (const notify of listeners) notify()
+      }
+      return {
+        getSnapshot: () => current,
+        subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn) },
+        dismiss(id) { if (current?.sessionId === id) publish(null) },
+        unobserve(id) { observers.delete(id); this.dismiss(id) },
+        observe(sessionId, enabled, catalog) {
+          const previous = observers.get(sessionId)
+          const next = observeTeam(previous, enabled, catalog)
+          if (!next || next === previous) return
+          observers.set(sessionId, next)
+          if (!enabled) this.dismiss(sessionId)
+          else if (next.announced) {
+            publish({ sessionId, members: next.members })
+          }
+        },
+      }
+    }
     // END PURE HELPERS
 
     const dict = {
@@ -58,6 +92,9 @@ window.__ModuleLoader__.load({
         sessionModel: '本会话的执行模型', inheritHint: '清除覆盖后，这个会话将使用全局默认；全局关闭时沿用父模型。',
         parentHint: '这个会话始终沿用父级模型，即使全局指定了默认模型。', routeHint: '这个会话使用下面的模型，即使全局默认关闭。',
         modeHelp: '三选一：继承全局默认、沿用父级模型，或指定一个模型。本组任一选择都不会自动提交。',
+        teamNoticeMain: '主代理', teamNoticeTitle: '团队协作已开始', teamNoticeSettings: '打开设置', teamNoticeClose: '临时关闭提示', teamNoticeMute: '不再弹出', teamNoticeToggle: '团队协作开始时弹出模型提示（取消勾选即永久关闭）',
+        teamNoticePreference: '团队协作弹窗', teamNoticePreferenceHint: '关闭后可在这里重新开启。', teamNoticeList: '团队成员模型',
+        teamNoticeWaiting: '等待模型确认…', teamNoticeUnavailable: '未能读取模型', teamNoticeActions: '可前往模型分工设置。', teamNoticeNavError: '暂时无法打开模型分工设置。',
         runtimeNext: '下次普通委派', runtimeSession: '会话覆盖', runtimeGlobal: '全局默认', runtimeParent: '沿用父级模型',
         runtimeClosed: '打开该会话后检查是否生效。', runtimeUnsupported: '该会话的预设使用原生委派行为。',
         runtimeNoTool: '该会话没有普通子代理工具。', runtimeMountFailed: '模型覆盖加载失败，委派由原生工具处理。',
@@ -116,6 +153,9 @@ window.__ModuleLoader__.load({
         sessionModel: 'Subagent model for this session', inheritHint: 'Clearing the override restores the global default, or the parent model when the global default is off.',
         parentHint: 'This session uses the parent model even when a global default is specified.', routeHint: 'This session uses the model below even when the global default is off.',
         modeHelp: 'Choose one of three: inherit the global default, use the parent model, or specify one model. Selecting any option never auto-submits.',
+        teamNoticeMain: 'Main agent', teamNoticeTitle: 'Agent teamwork started', teamNoticeSettings: 'Open settings', teamNoticeClose: 'Dismiss for now', teamNoticeMute: 'Don’t show again', teamNoticeToggle: 'Show model notice when teamwork starts (uncheck to turn off)',
+        teamNoticePreference: 'Team notifications', teamNoticePreferenceHint: 'You can turn them back on here at any time.', teamNoticeList: 'Team member models',
+        teamNoticeWaiting: 'Waiting for model information…', teamNoticeUnavailable: 'Model unavailable', teamNoticeActions: 'Model delegation settings are available.', teamNoticeNavError: 'Could not open model delegation settings.',
         runtimeNext: 'Next ordinary delegation', runtimeSession: 'Session override', runtimeGlobal: 'Global default', runtimeParent: 'Parent model',
         runtimeClosed: 'Open the session to check whether the override is active.', runtimeUnsupported: 'This session’s preset uses native delegation behavior.',
         runtimeNoTool: 'This session has no ordinary subagent tool.', runtimeMountFailed: 'The model override failed to load. The native tool handles delegation.',
@@ -194,6 +234,7 @@ window.__ModuleLoader__.load({
       heading: { fontSize: type.body, fontWeight: 650, lineHeight: 1.4, margin: 0 },
       tag: { display: 'inline-block', fontSize: type.detail, fontWeight: 600, padding: '0.125rem 0.5rem', borderRadius: '0.375rem', background: C.fill },
       hint: { color: C.muted, fontSize: type.detail, margin: 0 },
+      teamNoticeTitle: { font: 'inherit', fontWeight: 650, fontSize: type.body, color: C.ok, margin: 0 },
       link: { color: C.text, textDecoration: 'underline', textUnderlineOffset: '0.15em' },
       row: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' },
       field: { display: 'grid', gap: '0.375rem', minWidth: 0, fontWeight: 550 },
@@ -467,6 +508,7 @@ window.__ModuleLoader__.load({
     // -------------------------------------------------------------------------
     const UPDATE_ROUTE = '/model-delegation/update'
     const STATUS_ROUTE = '/model-delegation/status'
+    const TEAM_MODELS_ROUTE = '/model-delegation/team-models'
     const RELEASES_URL = 'https://github.com/WTYJ/dsh-cross-model-subagent/releases'
     const MIGRATE_COMMAND = 'dsh plugin add https://github.com/WTYJ/dsh-cross-model-subagent.git'
     const UPDATE_STATUSES = ['ready', 'up-to-date', 'ahead', 'forward', 'unknown-version', 'empty', 'error']
@@ -891,45 +933,226 @@ window.__ModuleLoader__.load({
         ),
       )
     }
-    function DelegationStatus({ t, sessionId, revision, refreshKey }) {
+    async function fetchModelSummary(route, query, signal) {
+      try {
+        const response = await fetch(route + '?' + query, {
+          method: 'POST', credentials: 'same-origin',
+          signal: AbortSignal.any([signal, AbortSignal.timeout(6500)]),
+        })
+        return response.ok ? await response.json() : null
+      } catch {
+        return null
+      }
+    }
+
+    function useDelegationStatus(sessionId, revision, refreshKey) {
       const [result, setResult] = useState(null)
       useEffect(() => {
         const controller = new AbortController()
-        const url = STATUS_ROUTE + '?sessionId=' + encodeURIComponent(sessionId)
-        fetch(url, { method: 'POST', credentials: 'same-origin', signal: controller.signal })
-          .then(response => response.ok ? response.json() : null)
-          .then(data => {
-            if (!controller.signal.aborted) setResult({ sessionId, revision, refreshKey, data })
-          })
-          .catch(() => {
-            if (!controller.signal.aborted) setResult({ sessionId, revision, refreshKey, data: null })
-          })
+        fetchModelSummary(STATUS_ROUTE, new URLSearchParams({ sessionId }), controller.signal).then(data => {
+          if (!controller.signal.aborted) setResult({ sessionId, revision, refreshKey, data })
+        })
         return () => controller.abort()
       }, [sessionId, revision, refreshKey])
-      const ready = result && result.sessionId === sessionId && result.revision === revision && result.refreshKey === refreshKey
-      const status = result?.data
-      let reason, text = ''
-      if (!ready) text = ''
-      else if (!status?.ok) reason = 'runtimeUnavailable'
-      else if (status.application === 'next-open') reason = 'runtimeClosed'
-      else if (status.mountFailed) reason = 'runtimeMountFailed'
-      else if (!status.nativeToolPresent) reason = 'runtimeNoTool'
-      else if (status.application !== 'next-subagent-call') reason = 'runtimeUnsupported'
-      else if (status.configurationInvalid || !status.selection) reason = 'runtimeInvalid'
-      else {
-        const { route, source } = status.selection
-        const model = route || status.parentRoute
-        const label = model?.provider && model?.model ? model.provider + '/' + model.model : t('runtimeParent')
-        const sourceLabel = t(source === 'session' ? 'runtimeSession' : source === 'global' ? 'runtimeGlobal' : 'runtimeParent')
-        text = t('runtimeNext') + ' · ' + label + (label === sourceLabel ? '' : ' · ' + sourceLabel)
-      }
-      return h(React.Fragment, null,
-        !ready ? h('p', { style: S.hint }, t('runtimeLoading')) : null,
-        h(LiveNote, { icon: 'info', text: reason ? t(reason) : text }))
+      return result && result.sessionId === sessionId && result.revision === revision && result.refreshKey === refreshKey
+        ? result : null
     }
 
-    function SessionSection({ scope, snap, t, catalog, rows, sessionsLoading, blocked, setBusy, refreshKey }) {
-      const [chosen, setChosen] = useState('')
+    function delegationState(status) {
+      if (!status?.ok) return 'runtimeUnavailable'
+      if (status.application === 'next-open') return 'runtimeClosed'
+      if (status.mountFailed) return 'runtimeMountFailed'
+      if (!status.nativeToolPresent) return 'runtimeNoTool'
+      if (status.application !== 'next-subagent-call') return 'runtimeUnsupported'
+      if (status.configurationInvalid || !status.selection) return 'runtimeInvalid'
+      return null
+    }
+
+    function routeLabel(route) {
+      return route?.provider && route?.model ? route.provider + ' / ' + route.model : ''
+    }
+
+    function workerLabel(t, { route, source }, parentRoute) {
+      const origin = t(source === 'session' ? 'runtimeSession' : source === 'global' ? 'runtimeGlobal' : 'runtimeParent')
+      const model = routeLabel(route || parentRoute)
+      return model ? `${model} · ${origin}` : origin
+    }
+
+    function DelegationStatus({ t, sessionId, revision, refreshKey }) {
+      const result = useDelegationStatus(sessionId, revision, refreshKey)
+      const reason = result ? delegationState(result.data) : null
+      const text = !result ? '' : reason ? t(reason)
+        : t('runtimeNext') + ' · ' + workerLabel(t, result.data.selection, result.data.parentRoute)
+      return h(React.Fragment, null,
+        !result ? h('p', { style: S.hint }, t('runtimeLoading')) : null,
+        h(LiveNote, { icon: 'info', text }))
+    }
+
+    function ObserveTeam({ sessionId, useProjection, notifications, noticeScope }) {
+      const enabled = useProjection('agentTeam', team => team?.enabled)
+      const catalog = useProjection('subagentCatalog')
+      const preference = useSource(noticeScope)
+      const canNotify = preference.status === 'ready' && preference.value?.muteTeamNotice !== true
+      useEffect(() => {
+        notifications.observe(sessionId, canNotify ? enabled : false, catalog)
+      }, [notifications, sessionId, canNotify, enabled, catalog])
+      useEffect(() => () => notifications.unobserve(sessionId), [notifications, sessionId])
+      return null
+    }
+
+    function useTeamMemberModels(sessionId, members) {
+      const [snapshot, setSnapshot] = useState(() => ({ modelById: new Map(), settledKey: null }))
+      const known = useRef(new Map())
+      const idsKey = JSON.stringify(members.filter(row => row.mode !== 'external').map(row => row.id))
+      useEffect(() => {
+        const controller = new AbortController()
+        const unresolved = new Set(JSON.parse(idsKey).filter(id => !known.current.has(id)))
+        let timer
+        let attempts = 0
+        async function poll() {
+          const ids = [...unresolved]
+          for (let index = 0; index < ids.length; index += 20) {
+            const query = new URLSearchParams({ sessionId })
+            for (const id of ids.slice(index, index + 20)) query.append('memberId', id)
+            const data = await fetchModelSummary(TEAM_MODELS_ROUTE, query, controller.signal)
+            if (controller.signal.aborted) return
+            if (data?.enabled === false) {
+              unresolved.clear()
+              break
+            }
+            if (!data?.ok) continue
+            const previousSize = known.current.size
+            for (const member of data.members ?? []) {
+              if (routeLabel(member.route) && unresolved.delete(member.id)) known.current.set(member.id, member.route)
+            }
+            if (known.current.size !== previousSize) {
+              const modelById = new Map(known.current)
+              setSnapshot(previous => ({ ...previous, modelById }))
+            }
+          }
+          if (unresolved.size > 0 && ++attempts < 8) timer = setTimeout(poll, 1200)
+          else setSnapshot(previous => ({ ...previous, settledKey: idsKey }))
+        }
+        void poll()
+        return () => { controller.abort(); clearTimeout(timer) }
+      }, [sessionId, idsKey])
+      return { modelById: snapshot.modelById, pending: snapshot.settledKey !== idsKey }
+    }
+    function useTeamNoticePreference(scope, t) {
+      const snapshot = useSource(scope)
+      const [saving, setSaving] = useState(false)
+      const [error, setError] = useState('')
+      const lock = useRef(false)
+      const setMuted = async muted => {
+        if (lock.current) return false
+        const current = scope.getSnapshot()
+        if (current.status !== 'ready' || !current.writable) { setError(t('readOnly')); return false }
+        if ((current.value?.muteTeamNotice === true) === muted) return true
+        lock.current = true
+        setSaving(true)
+        setError('')
+        try {
+          if (acceptedWrite(await scope.mutate([{ op: 'set', path: ['muteTeamNotice'], value: muted }], current.revision))) return true
+          setError(t('refused'))
+        } catch (failure) {
+          setError(failure?.message || t('error'))
+        } finally {
+          lock.current = false
+          setSaving(false)
+        }
+        return false
+      }
+      return { muted: snapshot.value?.muteTeamNotice === true, writable: snapshot.status === 'ready' && snapshot.writable,
+        saving, error, setMuted }
+    }
+
+    function TeamNoticePreference({ t, noticeScope }) {
+      const preference = useTeamNoticePreference(noticeScope, t)
+      return h(Card, { title: t('teamNoticePreference'), hint: t('teamNoticePreferenceHint') },
+        h(Toggle, { label: t('teamNoticeToggle'), checked: !preference.muted, disabled: !preference.writable || preference.saving,
+          onChange: enabled => { void preference.setMuted(!enabled) } }),
+        h(LiveNote, { error: true, text: preference.error }))
+    }
+
+    function TeamNotice({ t, notice, close, openSettings, noticeScope }) {
+      const { sessionId, members } = notice
+      const parentStatus = useDelegationStatus(sessionId)
+      const parentModel = parentStatus?.data?.ok ? routeLabel(parentStatus.data.parentRoute) : ''
+      const { modelById, pending } = useTeamMemberModels(sessionId, members)
+
+      const id = useId()
+      const card = useRef(null)
+      const focusBefore = useRef(null)
+      const [navigationFailed, setNavigationFailed] = useState(false)
+      const preference = useTeamNoticePreference(noticeScope, t)
+      useEffect(() => {
+        const element = card.current
+        focusBefore.current = document.activeElement
+        if (typeof element.showPopover === 'function') element.showPopover()
+        return () => { if (typeof element.hidePopover === 'function') element.hidePopover() }
+      }, [])
+      const dismiss = () => {
+        if (card.current?.contains(document.activeElement) && focusBefore.current?.isConnected) {
+          focusBefore.current.focus({ preventScroll: true })
+        }
+        close(sessionId)
+      }
+      const mute = async () => { if (await preference.setMuted(true)) dismiss() }
+      const position = { position: 'fixed', inset: 'auto', top: 'max(3.75rem, env(safe-area-inset-top))', right: '1rem',
+        margin: 0, inlineSize: 'min(24rem, calc(100% - 2rem))', maxBlockSize: 'calc(100% - 4.75rem)', overflow: 'auto',
+        boxSizing: 'border-box', padding: '0.875rem 1rem', pointerEvents: 'auto', overflowWrap: 'anywhere',
+        color: C.text, background: C.surface, border: '1px solid ' + C.border, borderRadius: 'var(--dsw-radius-md, 0.75rem)',
+        boxShadow: 'var(--dsw-elevation-soft)', fontSize: '0.875rem', lineHeight: 1.5, scrollbarGutter: 'stable' }
+      const row = (label, model, key) => h('div', { key, style: { display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 3fr)', gap: '0.5rem' } },
+        h('dt', { style: { fontWeight: 600, minWidth: 0 } }, label),
+        h('dd', { style: { margin: 0, minWidth: 0, color: C.muted } }, model))
+      return h('section', { ref: card, popover: 'manual', style: position, 'aria-labelledby': id,
+        onKeyDown: event => { if (event.key === 'Escape' && !preference.saving) { event.preventDefault(); event.stopPropagation(); dismiss() } } },
+        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' } },
+          h('h2', { id, style: S.teamNoticeTitle }, t('teamNoticeTitle')),
+          h('button', { type: 'button', onClick: dismiss, disabled: preference.saving, 'aria-label': t('teamNoticeClose'),
+            title: t('teamNoticeClose'), style: { ...S.button, flex: '0 0 auto', fontSize: '1.125rem', padding: '0 0.5rem' } }, '×')),
+        h('dl', { tabIndex: 0, 'aria-label': t('teamNoticeList'), style: { display: 'grid', gap: '0.375rem', margin: '0.75rem 0',
+          maxBlockSize: 'min(10rem, 28vh)', overflowY: 'auto', overscrollBehavior: 'contain', paddingInlineEnd: '0.25rem' } },
+          row(t('teamNoticeMain'), parentModel || t(parentStatus ? 'teamNoticeUnavailable' : 'teamNoticeWaiting'), 'lead'),
+          members.map(member => {
+            const model = routeLabel(modelById.get(member.id))
+            if (!model && (!pending || member.mode === 'external')) return null
+            return row(member.name || member.label || member.id.replace(/^session-/, '').slice(0, 8),
+              model || t('teamNoticeWaiting'), member.id)
+          })),
+        h('div', { style: S.row },
+          openSettings ? h(Button, { primary: true, onClick: () => {
+            if (openSettings(sessionId)) close(sessionId)
+            else setNavigationFailed(true)
+          } }, t('teamNoticeSettings')) : null,
+          h(Button, { onClick: mute, disabled: preference.saving || !preference.writable }, t('teamNoticeMute'))),
+        h(LiveNote, { error: true, text: preference.error || (navigationFailed ? t('teamNoticeNavError') : '') }))
+    }
+
+    function TeamNoticeOverlay({ t, notifications, openSettings, noticeScope }) {
+      const notice = useSource(notifications)
+      const message = notice ? [t('teamNoticeTitle'), openSettings ? t('teamNoticeActions') : ''].filter(Boolean).join(' · ') : ''
+      const nativeAnnouncement = typeof document.ariaNotify === 'function'
+      useEffect(() => {
+        if (message && nativeAnnouncement) document.ariaNotify(message)
+      }, [message, nativeAnnouncement])
+      return h(React.Fragment, null,
+        h('span', { role: 'status', style: { position: 'absolute', inlineSize: 1, blockSize: 1, overflow: 'hidden', clipPath: 'inset(50%)' } },
+          nativeAnnouncement ? '' : message),
+        notice ? h(TeamNotice, { key: notice.sessionId, t, notice, close: notifications.dismiss, openSettings, noticeScope }) : null)
+    }
+
+    // Renders no visible model text: the composer dock only watches the live
+    // team catalog so a notice can appear when a member starts.
+    function ConversationModels({ sessionId, useProjection, useSession, notifications, noticeScope }) {
+      if (useSession(state => state.subagent !== null)) return null
+      return h(ObserveTeam, { sessionId, useProjection, notifications, noticeScope })
+    }
+
+    function SessionSection({ scope, snap, t, catalog, rows, sessionsLoading, blocked, setBusy, refreshKey, navigation }) {
+      const requestedSession = useSource(navigation)
+      const [chosen, setChosen] = useState(() => requestedSession?.sessionId ?? '')
       const activeId = chosen || (rows.find(row => row.current) || rows[0] || {}).id || ''
       const editor = useEditor(scope, snap, value => sessionValue(value, activeId), setBusy, t)
       const value = editor.value
@@ -939,6 +1162,12 @@ window.__ModuleLoader__.load({
       const modeHelpId = useId()
       const modelErrId = useId()
       const titleId = useId()
+      useEffect(() => {
+        if (!requestedSession || editor.dirty) return
+        setChosen(requestedSession.sessionId)
+        setInvalid(false)
+        navigation.consume(requestedSession)
+      }, [requestedSession, editor.dirty, navigation])
       const change = next => { setChosen(activeId); setInvalid(false); editor.change(next) }
       const submit = () => {
         if (blocked || !present) return
@@ -982,7 +1211,7 @@ window.__ModuleLoader__.load({
         ),
       )
     }
-    function Panel({ ctx, t, useSessions }) {
+    function Panel({ ctx, t, useSessions, navigation, noticeScope }) {
       const scope = useMemo(() => ctx.configForms.get(CONFIG), [ctx])
       const mirror = useMemo(() => ctx.configForms.describe(), [ctx])
       const snap = useSource(scope)
@@ -1089,12 +1318,13 @@ window.__ModuleLoader__.load({
           h('section', { 'aria-labelledby': modelsTitleId },
             h('h2', { style: S.groupTitle, id: modelsTitleId }, t('workerSettings')),
             h('div', { style: S.card },
-              h(SessionSection, { scope, snap, t, catalog, rows, sessionsLoading: !sessions || sessions.phase === 'pending', blocked, setBusy: busy, refreshKey }),
+              h(SessionSection, { scope, snap, t, catalog, rows, sessionsLoading: !sessions || sessions.phase === 'pending', blocked, setBusy: busy, refreshKey, navigation }),
               h(GlobalSection, { scope, snap, t, catalog, blocked, setBusy: busy }))),
           h('section', null,
             h('h2', { style: S.groupTitle }, t('teamsTitle')),
             h('div', { style: S.card },
-              h(ForceSection, { scope, snap, t, blocked, setBusy: busy }))),
+              h(ForceSection, { scope, snap, t, blocked, setBusy: busy }),
+               h(TeamNoticePreference, { t, noticeScope }))),
           h('div', { style: S.card }, h(UpdateSection, { t })),
           h(Details, { summary: t('details') }, t('scopeHint')),
         ))
@@ -1108,12 +1338,39 @@ window.__ModuleLoader__.load({
         h('circle', { cx: 3.5, cy: 6, r: 1.2, fill: 'currentColor', stroke: 'none' }))
     }
     return {
-      inject: ['slots', 'locale', 'configForms', 'sessions', 'remote', 'remote.session', 'remote.settings'],
+      inject: ['slots', 'layout', 'locale', 'configForms', 'sessions', 'remote', 'remote.session', 'remote.settings'],
       apply(ctx) {
         const ID = 'cross_model_subagent_settings'
         const t = ctx.locale.bind(NS)
         ctx.effect(() => ctx.locale.register(NS, dict), 'cross-model-subagent: dictionaries')
-        function PanelBound(props) { return h(Panel, { ctx, t, useSessions: props.useSessions }) }
+        const notifications = teamNotifications()
+        const noticeScope = ctx.configForms.get(TEAM_NOTICE_CONFIG)
+        const layout = ctx.get('layout')
+        let target = null
+        const navigationListeners = new Set()
+        function setTarget(value) {
+          target = value
+          for (const notify of navigationListeners) notify()
+        }
+        const navigation = {
+          getSnapshot: () => target,
+          subscribe(fn) { navigationListeners.add(fn); return () => navigationListeners.delete(fn) },
+          consume(request) { if (target === request) setTarget(null) },
+        }
+        function openSettings(sessionId) {
+          try { layout.selectPanel(ID) } catch { return false }
+          setTarget({ sessionId })
+          return true
+        }
+        function PanelBound(props) { return h(Panel, { ctx, t, useSessions: props.useSessions, navigation, noticeScope }) }
+        function ConversationModelsBound(props) { return h(ConversationModels, { sessionId: props.sessionId, useProjection: props.useProjection, useSession: props.useSession, notifications, noticeScope }) }
+        function TeamNoticeBound() { return h(TeamNoticeOverlay, { t, notifications, openSettings: layout ? openSettings : null, noticeScope }) }
+        ctx.effect(() => ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+          name: 'shell.overlay', id: 'cross-model-subagent-team-notice', locale: NS,
+        }, TeamNoticeBound)), 'cross-model-subagent: team notice')
+        ctx.effect(() => ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
+          name: 'conversation.composer.dock', id: 'cross-model-subagent-summary', order: 5, locale: NS,
+        }, ConversationModelsBound)), 'cross-model-subagent: conversation models')
         ctx.effect(() => ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: ID, locale: NS }, PanelBound)), 'cross-model-subagent: main panel')
         ctx.effect(() => ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: ID, order: 5, label: () => t('panelIcon'), locale: NS }, PanelIcon)), 'cross-model-subagent: sidebar entry')
       },
