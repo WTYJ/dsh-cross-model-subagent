@@ -96,16 +96,15 @@ export async function readTeamModels(ctx, id, requestedIds, signal) {
   }
   const query = ctx.get('sessionQuery')
   const members = await Promise.all([...children].map(async ([childId, mode]) => {
-    let route = null
-    if (mode !== 'external') {
+    if (mode === 'external') return { id: childId, route: null }
+    try {
       const child = ctx.agents.get(childId)
-      if (child) route = recordedModel(child.session)
-      else if (query) {
-        try { route = await query.inspectSession(childId, recordedModel, signal) }
-        catch { signal.throwIfAborted() }
-      }
+      if (child) return { id: childId, route: recordedModel(child.session) }
+      if (query) return { id: childId, route: (await query.inspectSession(childId, recordedModel, signal)) ?? null }
+    } catch {
+      signal.throwIfAborted()
     }
-    return { id: childId, route }
+    return { id: childId, route: null, failed: true }
   }))
   return { enabled: true, parentRoute: recordedModel(root.session) ?? modelIdentity(root.model.current()), members }
 }

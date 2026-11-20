@@ -22,31 +22,19 @@ export function checkedRoute(provider, model) {
   return { provider: provider.trim(), model: model.trim() }
 }
 
-export function validateSettings(settings) {
-  if (settings.routingEnabled) checkedRoute(settings.defaultProvider, settings.defaultModel)
-  if (!Array.isArray(settings.sessionDefaults)) throw new Error('sessionDefaults must be an array.')
-  const seen = new Set()
-  for (const row of settings.sessionDefaults) {
-    if (!row || typeof row.sessionId !== 'string' || !row.sessionId.trim()) throw new Error('Every session override requires a sessionId.')
-    if (seen.has(row.sessionId)) throw new Error(`Duplicate session override: ${row.sessionId}`)
-    seen.add(row.sessionId)
-    if (row.mode === 'route') checkedRoute(row.provider, row.model)
-    else if (row.mode !== 'parent') throw new Error(`Unknown session override mode: ${row.mode}`)
-  }
-  return settings
-}
-
 export function resolveDefault(settings, sessionId) {
-  validateSettings(settings)
-  const row = settings.sessionDefaults.find(row => row.sessionId === sessionId)
+  if (!Array.isArray(settings.sessionDefaults)) throw new Error('sessionDefaults must be an array.')
+  const [row, duplicate] = settings.sessionDefaults.filter(row => row?.sessionId === sessionId)
+  if (duplicate) throw new Error(`Duplicate session override: ${sessionId}`)
   if (row?.mode === 'parent') return { source: 'session-parent', route: null }
   if (row?.mode === 'route') return { source: 'session', route: checkedRoute(row.provider, row.model) }
+  if (row) throw new Error(`Unknown session override mode: ${row.mode}`)
   if (settings.routingEnabled) return { source: 'global', route: checkedRoute(settings.defaultProvider, settings.defaultModel) }
   return { source: 'parent', route: null }
 }
 
 export function updateSettings(current, request, sessionId) {
-  const next = { ...current, sessionDefaults: current.sessionDefaults.map(row => ({ ...row })) }
+  const next = { ...current }
   if (request.scope === 'global') {
     if (request.mode === 'route') {
       const route = checkedRoute(request.provider, request.model)
@@ -56,11 +44,12 @@ export function updateSettings(current, request, sessionId) {
     } else if (request.mode === 'parent') next.routingEnabled = false
     else throw new Error('Global mode must be route or parent.')
   } else if (request.scope === 'session') {
-    if (!sessionId) throw new Error('No target session.')
-    next.sessionDefaults = next.sessionDefaults.filter(row => row.sessionId !== sessionId)
+    if (typeof sessionId !== 'string' || !sessionId.trim()) throw new Error('No target session.')
+    if (!Array.isArray(current.sessionDefaults)) throw new Error('sessionDefaults must be an array.')
+    next.sessionDefaults = current.sessionDefaults.filter(row => row?.sessionId !== sessionId)
     if (request.mode === 'route') next.sessionDefaults.push({ sessionId, mode: 'route', ...checkedRoute(request.provider, request.model) })
     else if (request.mode === 'parent') next.sessionDefaults.push({ sessionId, mode: 'parent', provider: '', model: '' })
     else if (request.mode !== 'inherit') throw new Error('Session mode must be route, parent or inherit.')
   } else throw new Error('Scope must be global or session.')
-  return validateSettings(next)
+  return next
 }

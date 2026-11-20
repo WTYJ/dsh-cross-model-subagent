@@ -15,9 +15,11 @@ const require = createRequire(import.meta.url)
 /** Directories whose `node_modules` may hold the installation's packages. */
 function installAnchors() {
   const exe = path.dirname(process.execPath)
+  const resources = process.resourcesPath ?? path.resolve(exe, '..', 'Resources')
   const anchors = [
     process.env.DSH_INSTALL_DIR,
     process.env.DSH_PROFILE_DIR,
+    path.join(resources, 'app.asar', 'dsh', 'node_modules', '@deepseek-ai', 'dsh'),
     path.join(exe, 'resources', 'app.asar', 'dsh'),
     path.join(exe, 'resources', 'app.asar', 'dsh', 'node_modules', '@deepseek-ai', 'dsh'),
     path.dirname(exe),

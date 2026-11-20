@@ -22,6 +22,7 @@ export const Config = z.object({
 
 /** This file's own manifest: the running copy, not a name assumed in advance. */
 const SELF = manifestOf(import.meta.url)
+const LOCAL_PREVIEW = SELF.localPreview === true
 
 export const ROUTE = '/model-delegation/update'
 const MAX_BODY = 8 * 1024
@@ -62,34 +63,50 @@ export function apply(ctx, config = {}) {
   return mountUpdater(ctx, config)
 }
 
-export function mountUpdater(ctx, config, { route = ROUTE, registerTool = true } = {}) {
+export function mountUpdater(ctx, config, { route = ROUTE, registerTool = true, fetchImpl } = {}) {
   const timeoutMs = Number(config.checkTimeoutMs) > 0 ? Number(config.checkTimeoutMs) : 8000
   const managerOf = () => ctx.get('pluginManager')
   const version = typeof SELF?.version === 'string' ? SELF.version : null
-  const names = candidateNames()
+  const names = LOCAL_PREVIEW ? [SELF.name] : candidateNames()
   // GitHub allows 60 anonymous requests per hour per IP and one check costs two, so the
   // last good answer is reused for a while instead of being re-fetched on every visit.
   let cache
+  let applying = false
 
   async function run(action, payload, signal) {
     const manager = managerOf()
     if (!manager) return { ok: false, action, message: 'The plugin manager is unavailable in this profile, so updates cannot be managed here.' }
     if (action === 'check') {
-      const result = await updateStatus(manager, names, { signal, timeoutMs, cache, force: payload?.force === true })
-      if (result.cacheable) cache = { at: Date.now(), payload: { ...result } }
+      const result = await updateStatus(manager, names, { fetchImpl, signal, timeoutMs, cache, force: payload?.force === true })
+      if (result.cacheable && !result.cached) {
+        const { latestVersion, latestCommit, publishedAt, notes, fetchAttempts } = result
+        cache = { at: Date.now(), payload: { latestVersion, latestCommit, publishedAt, notes, fetchAttempts } }
+      }
+      if (LOCAL_PREVIEW) return { ...result, action, localPreview: true }
       if (result.installed && result.name !== PACKAGE_NAME) {
         return { ...result, action, canSelfUpdate: false, spec: null,
           reason: `This copy uses the former package name ${result.name}. Reinstall from ${REPOSITORY.url} to switch to ${PACKAGE_NAME}.` }
       }
       return { ...result, action }
     }
-    // A pinned commit is the only target: the manager refuses anything else anyway.
+    if (LOCAL_PREVIEW) return { ok: false, action, message: 'Refresh the local preview from the workspace to update it.' }
     const request = { version: payload?.version, spec: payload?.spec, name: PACKAGE_NAME }
-    if (typeof request.version !== 'string' || typeof request.spec !== 'string' || !isPinnedSpec(request.spec)) {
+    if (typeof request.version !== 'string' || !isPinnedSpec(request.spec)) {
       return { ok: false, action, message: 'Send a version and its pinned commit returned by check.' }
     }
-    cache = undefined
-    return { ...await applyUpdate(manager, request), action }
+    if (applying) return { ok: false, action, message: 'An update is already in progress.' }
+    applying = true
+    try {
+      const checked = await updateStatus(manager, [PACKAGE_NAME], { cache, cacheOnly: true })
+      if (checked.status !== 'ready' || !checked.canSelfUpdate ||
+          checked.latestVersion !== request.version || checked.spec !== request.spec) {
+        return { ok: false, action, message: 'Check for updates again and install the version and commit offered for this installation.' }
+      }
+      signal?.throwIfAborted()
+      return { ...await applyUpdate(manager, request), action }
+    } finally {
+      applying = false
+    }
   }
 
   ctx.effect(() => ctx.webServer.register({

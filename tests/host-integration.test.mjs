@@ -157,8 +157,12 @@ const HOST = '127.0.0.1:12345'
 function mountUpdate({ connection = { admit: req => req.admission } } = {}) {
   let handler
   const installs = []
+  const bundles = []
+  const fetchImpl = async url => new Response(JSON.stringify(url.includes('/commits/')
+    ? { sha: 'a'.repeat(40) }
+    : { type: 'file', content: Buffer.from(JSON.stringify({ version: '0.0.2', dsh: { bundle: {} } })).toString('base64') }))
   const pluginManager = {
-    async listBundles() { return [] },
+    async listBundles() { return bundles },
     async updateBundle(name, version, options) {
       installs.push({ name, version, options })
       return { result: { application: 'applied' } }
@@ -169,7 +173,7 @@ function mountUpdate({ connection = { admit: req => req.admission } } = {}) {
     webServer: { register(route) { handler = route.handler } },
     get: key => services[key],
     effect: mount => mount(),
-  }, {}, { registerTool: false })
+  }, {}, { registerTool: false, fetchImpl })
 
   async function call({ headers = {}, admission, body }) {
     const req = Readable.from([Buffer.from(JSON.stringify(body))])
@@ -181,7 +185,13 @@ function mountUpdate({ connection = { admit: req => req.admission } } = {}) {
     })
     return result
   }
-  return { call, installs }
+  async function checkInstalled() {
+    if (!bundles.length) bundles.push({ name: 'dsh-cross-model-subagent', version: '0.0.1', source: buildGitSpec('b'.repeat(40)), update: 'git' })
+    const result = await call({ body: { action: 'check' } })
+    assert.equal(result.body.canSelfUpdate, true)
+    assert.equal(result.body.spec, PINNED)
+  }
+  return { call, installs, bundles, checkInstalled }
 }
 
 test('check stays available with no credentials while apply is gated', async () => {
@@ -235,6 +245,7 @@ test('the updater looks up the new package name before either historical name', 
 
 test('an owner browser on the same origin reaches the simulated updateBundle', async () => {
   const u = mountUpdate()
+  await u.checkInstalled()
   const r = await u.call({
     headers: { origin: `http://${HOST}` },
     admission: { peer: { principal: { kind: 'owner' } } },
@@ -249,6 +260,7 @@ test('an owner browser on the same origin reaches the simulated updateBundle', a
 
 test('an Electron owner request with no Origin reaches the simulated updateBundle', async () => {
   const u = mountUpdate()
+  await u.checkInstalled()
   const r = await u.call({
     // Electron strips Origin and forwards a Host-issued cookie; admit() then
     // returns the owner browser Peer, so a no-Origin install proceeds.
@@ -270,4 +282,17 @@ test('an owner install with an unpinned spec fails before the manager is called'
   assert.equal(u.installs.length, 0, 'an unpinned spec never reaches updateBundle')
   assert.equal(r.body.ok, false)
   assert.equal(r.status, 502)
+})
+
+test('apply requires a checked version and commit that remain eligible', async () => {
+  const u = mountUpdate()
+  const admission = { peer: { principal: { kind: 'owner' } } }
+  const apply = (version, spec) => u.call({ admission, body: { action: 'apply', version, spec } })
+  assert.equal((await apply('0.0.2', PINNED)).body.ok, false)
+  await u.checkInstalled()
+  assert.equal((await apply('0.0.3', PINNED)).body.ok, false)
+  assert.equal((await apply('0.0.2', buildGitSpec('c'.repeat(40)))).body.ok, false)
+  u.bundles[0].source = 'github:example/other#' + 'd'.repeat(40)
+  assert.equal((await apply('0.0.2', PINNED)).body.ok, false)
+  assert.equal(u.installs.length, 0)
 })

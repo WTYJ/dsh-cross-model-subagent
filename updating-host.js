@@ -50,7 +50,7 @@ export function sourceKind(value) {
  * @param options.cache previous result to reuse while fresh (spares the anonymous quota).
  * @param options.force skip the cache, for an explicit "check again".
  */
-export async function updateStatus(manager, names = [PACKAGE_NAME], { version, fetchImpl, signal, timeoutMs, cache, force } = {}) {
+export async function updateStatus(manager, names = [PACKAGE_NAME], { version, fetchImpl, signal, timeoutMs, cache, force, cacheOnly } = {}) {
   const candidates = (Array.isArray(names) ? names : [names]).filter(name => typeof name === 'string' && name)
   if (candidates.length === 0) candidates.push(PACKAGE_NAME)
   let bundles
@@ -76,7 +76,11 @@ export async function updateStatus(manager, names = [PACKAGE_NAME], { version, f
   const source = typeof bundle.source === 'string' ? bundle.source : undefined
   const dependency = source?.startsWith(prefix) ? source.slice(prefix.length) : source
   const installedSource = { kind: dependency ? sourceKind(dependency) : 'unknown', spec: dependency }
-  const check = await checkForUpdate({ fetchImpl, signal, currentVersion, installedSource, timeoutMs, cache, force, readGit: readGitRelease })
+  const check = await checkForUpdate({ fetchImpl, signal, currentVersion, installedSource, timeoutMs, cache, force, cacheOnly, readGit: readGitRelease })
+  const canSelfUpdate = check.canSelfUpdate && bundle.update === 'git'
+  const reason = check.status === 'ready' && check.canSelfUpdate && !canSelfUpdate
+    ? 'DSH does not offer Git self-update for this installation.'
+    : check.reason
   return {
     ok: true,
     name,
@@ -87,9 +91,9 @@ export async function updateStatus(manager, names = [PACKAGE_NAME], { version, f
     latestVersion: check.latestVersion,
     latestCommit: check.latestCommit,
     status: check.status,
-    canSelfUpdate: check.canSelfUpdate && bundle.update === 'git',
-    spec: check.canSelfUpdate && bundle.update === 'git' ? check.spec : null,
-    reason: check.reason,
+    canSelfUpdate,
+    spec: canSelfUpdate ? check.spec : null,
+    reason,
     notes: check.notes,
     publishedAt: check.publishedAt,
     checkedAt: check.checkedAt,

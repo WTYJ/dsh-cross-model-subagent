@@ -43,6 +43,25 @@ window.__ModuleLoader__.load({
       return { baseline, revision: previous ? previous.revision : revision, value: next }
     }
     const isDirty = (edit) => !!edit && JSON.stringify(edit.value) !== JSON.stringify(edit.baseline)
+    const GLOBAL_GROUPS = [['routingEnabled'], ['defaultProvider', 'defaultModel']]
+    const groupChanged = (before, after, fields) => fields.some(field => !Object.is(before[field], after[field]))
+    const changedFields = (before, after, groups) => groups.filter(group => groupChanged(before, after, group)).flat()
+    function rebaseDraft(edit, current, revision, groups) {
+      if (!groups) return beginEdit(null, current, revision, edit.value)
+      const value = { ...current }
+      for (const field of changedFields(edit.baseline, edit.value, groups)) value[field] = edit.value[field]
+      return beginEdit(null, current, revision, value)
+    }
+    function draftOverlaps(edit, current, groups) {
+      if (!groups) return JSON.stringify(edit.baseline) !== JSON.stringify(current)
+        && JSON.stringify(edit.value) !== JSON.stringify(current)
+      return groups.some(group => groupChanged(edit.baseline, edit.value, group)
+        && groupChanged(edit.baseline, current, group)
+        && groupChanged(edit.value, current, group))
+    }
+    function globalOps(before, after) {
+      return changedFields(before, after, GLOBAL_GROUPS).map(field => ({ op: 'set', path: [field], value: after[field] }))
+    }
     const acceptedWrite = (result) => result === true
     function routeLabel(route) {
       return route?.provider && route?.model ? route.provider + ' / ' + route.model : ''
@@ -51,11 +70,18 @@ window.__ModuleLoader__.load({
       return ids.filter(id => !known.has(id) || (refreshKey > 0 && lastRefresh.get(id) !== refreshKey))
     }
     function teamMemberBatch(ids, data, known) {
-      if (!data?.ok) return { confirmed: [], waiting: [], failed: true }
+      if (!data?.ok) return { confirmed: [], waiting: [], failed: ids }
       const requested = new Set(ids)
-      const confirmed = (data.members ?? []).filter(member => requested.has(member.id) && routeLabel(member.route))
-      for (const member of confirmed) requested.delete(member.id)
-      return { confirmed, waiting: [...requested].filter(id => !known.has(id)), failed: false }
+      const confirmed = []
+      const failed = []
+      for (const member of data.members ?? []) {
+        if (!requested.has(member.id)) continue
+        if (member.failed) failed.push(member.id)
+        else if (routeLabel(member.route)) confirmed.push(member)
+        else continue
+        requested.delete(member.id)
+      }
+      return { confirmed, waiting: [...requested].filter(id => !known.has(id)), failed }
     }
     function observeTeam(previous, enabled, catalog) {
       if (typeof enabled !== 'boolean' || !Array.isArray(catalog)) return previous
@@ -120,7 +146,8 @@ window.__ModuleLoader__.load({
         save: '保存', saving: '保存中…', discard: '撤销草稿', saved: '已保存', working: '处理中…',
         dirty: '有未保存的修改。', switchProtected: '请先保存或撤销草稿，再切换目标会话。',
         refused: 'Host 未接受保存（可能是配置已改变或验证失败）。草稿已保留，请刷新后核对。',
-        conflict: '配置在编辑后已改变。草稿仍按编辑起点的 revision 保存，避免覆盖他人的修改。',
+        conflict: '配置已更新。采用最新版本后，你改过的设置会保留在草稿里。',
+        overlappingConflict: '这项设置也已在别处修改。可放弃草稿，或保留草稿并在核对后保存。',
         rebase: '保留草稿并采用最新配置版本', rebased: '已采用最新版本，请核对草稿后重新保存。',
         refreshAction: '刷新', refresh: '刷新模型、会话和配置', refreshing: '正在刷新…', refreshed: '模型、会话和配置已刷新。', refreshFailed: '部分刷新失败；保留上次可用数据：',
         configLoading: '正在加载配置…', unavailable: 'Host 未提供此插件配置，无法编辑。', readOnly: '当前配置为只读，无法保存。',
@@ -182,7 +209,8 @@ window.__ModuleLoader__.load({
         save: 'Save', saving: 'Saving…', discard: 'Discard draft', saved: 'Saved', working: 'Working…',
         dirty: 'Unsaved changes.', switchProtected: 'Save or discard the draft before switching sessions.',
         refused: 'The Host refused the save (configuration may have changed or validation failed). Your draft is retained; refresh and review it.',
-        conflict: 'Configuration changed after editing began. The draft retains its original revision to prevent overwriting other changes.',
+        conflict: 'Configuration changed. Adopt the latest revision to keep your edits and pick up the other changes.',
+        overlappingConflict: 'This setting was also changed elsewhere. Discard the draft or keep it and review it before saving.',
         rebase: 'Keep draft and adopt latest configuration revision', rebased: 'Latest revision adopted. Review the draft before saving again.',
         refreshAction: 'Refresh', refresh: 'Refresh models, sessions and configuration', refreshing: 'Refreshing…', refreshed: 'Models, sessions and configuration refreshed.', refreshFailed: 'Some refreshes failed; last available data retained: ',
         configLoading: 'Loading configuration…', unavailable: 'The Host does not serve this plugin configuration.', readOnly: 'Configuration is read-only; saving is disabled.',
@@ -725,7 +753,7 @@ window.__ModuleLoader__.load({
       const busyCheck = state.phase === 'loading'
       const checkFailed = state.phase === 'error' || status === 'error'
       const checkError = checkFailed ? state.error || data.reason || t('updateCheckFailed') : ''
-      const migrate = state.phase === 'ok' && isLinkKind(data.installedSource)
+      const migrate = state.phase === 'ok' && !data.localPreview && isLinkKind(data.installedSource)
       const canInstall = state.phase === 'ok' && data.canSelfUpdate === true && data.status === 'ready' && typeof data.spec === 'string' && !!data.latestVersion
       const installDisabled = installing || busyCheck
 
@@ -792,6 +820,9 @@ window.__ModuleLoader__.load({
               h('p', { style: S.hint }, t('updateMigrateAfter')))
             : null,
 
+          status === 'ready' && !canInstall && !migrate && !data.localPreview && data.reason
+            ? h(Note, { icon: 'info' }, data.reason) : null,
+
           // Keep install confirmation and retry next to the version summary.
           h('div', { style: S.row },
             canInstall
@@ -823,7 +854,7 @@ window.__ModuleLoader__.load({
 
     // Each editor freezes its revision at the first change. Refresh and refused writes never clear drafts.
     // Two message kinds: transient success (auto-clears) and persistent warning (dirty/conflict/rebase stay).
-    function useEditor(scope, snap, readValue, setBusy, t) {
+    function useEditor(scope, snap, readValue, setBusy, t, groups) {
       const [edit, setEdit] = useState(null)
       const [saving, setSaving] = useState(false)
       const [message, setMessage] = useState('')
@@ -851,7 +882,7 @@ window.__ModuleLoader__.load({
       }
       const discard = () => { clearTimer(); setEdit(null); setMessage(''); setWarning(''); setError('') }
       const save = async ops => {
-        if (!dirty || lock.current || !edit || edit.revision === undefined) return
+        if (!dirty || lock.current || !edit || edit.revision === undefined || edit.revision !== snap.revision) return
         lock.current = true; setSaving(true); setBusy(true); setError(''); setMessage(''); setWarning('')
         try {
           if (!acceptedWrite(await scope.mutate(ops, edit.revision))) { setError(t('refused')); return }
@@ -860,25 +891,26 @@ window.__ModuleLoader__.load({
         finally { lock.current = false; setSaving(false); setBusy(false) }
       }
       const conflict = dirty && edit.revision !== snap.revision
+      const overlap = conflict && draftOverlaps(edit, current, groups)
       const rebase = () => {
-        setEdit(previous => previous && Object.assign({}, previous, { revision: snap.revision }))
+        setEdit(previous => previous && rebaseDraft(previous, current, snap.revision, groups))
         setError('')
         setWarning(t('rebased'))
       }
-      return { value, dirty, saving, change, discard, save, conflict, rebase, message, warning, error, setError }
+      return { value, baseline: edit?.baseline, dirty, saving, change, discard, save, conflict, overlap, rebase, message, warning, error, setError }
     }
     // Footer inside the editor's <form>; the primary Save is type=submit, helpers are type=button.
     // Only dynamic results (success/error/warning) are announced; the static dirty hint is inert.
     function EditorFooter({ editor, t, disabled }) {
       return h(React.Fragment, null,
         editor.dirty ? h(Note, { icon: 'info' }, t('dirty')) : null,
-        editor.conflict ? h(Note, { icon: 'info' }, t('conflict')) : null,
+        editor.conflict ? h(Note, { icon: 'info' }, t(editor.overlap ? 'overlappingConflict' : 'conflict')) : null,
         h(LiveNote, { error: true, icon: 'info', text: editor.error }),
         h(LiveNote, { ok: true, icon: 'check', text: editor.message }),
         h(LiveNote, { icon: 'info', text: editor.warning }),
         h('div', { style: S.row },
-          h('button', { type: 'submit', disabled: disabled || editor.saving || !editor.dirty,
-            style: Object.assign({}, S.button, S.primary, disabled || editor.saving || !editor.dirty ? S.disabled : {}) },
+          h('button', { type: 'submit', disabled: disabled || editor.saving || editor.conflict || !editor.dirty,
+            style: Object.assign({}, S.button, S.primary, disabled || editor.saving || editor.conflict || !editor.dirty ? S.disabled : {}) },
             h(Icon, { name: 'save', size: 16 }), h('span', null, t(editor.saving ? 'saving' : 'save'))),
           h(Button, { disabled: editor.saving || !editor.dirty, onClick: editor.discard, icon: 'reset' }, t('discard')),
         ),
@@ -886,7 +918,7 @@ window.__ModuleLoader__.load({
       )
     }
     function GlobalSection({ scope, snap, t, catalog, blocked, setBusy }) {
-      const editor = useEditor(scope, snap, defaultValue, setBusy, t)
+      const editor = useEditor(scope, snap, defaultValue, setBusy, t, GLOBAL_GROUPS)
       const value = editor.value
       const [invalid, setInvalid] = useState(false)
       const modelRef = useRef(null)
@@ -900,7 +932,7 @@ window.__ModuleLoader__.load({
           if (modelRef.current && typeof modelRef.current.focus === 'function') modelRef.current.focus()
           return
         }
-        void editor.save(Object.keys(value).map(field => ({ op: 'set', path: [field], value: value[field] })))
+        if (editor.dirty) void editor.save(globalOps(editor.baseline, value))
       }
       const changeRoute = route => { setInvalid(false); editor.change(Object.assign({}, value, { defaultProvider: route.provider, defaultModel: route.model })) }
       return h(Card, { title: t('globalTitle'), titleId, hint: t('globalHint'), icon: 'model', headingLevel: 'h3' },
@@ -983,10 +1015,10 @@ window.__ModuleLoader__.load({
       const [result, setResult] = useState(null)
       useEffect(() => {
         const controller = new AbortController()
-        fetchModelSummary(STATUS_ROUTE, new URLSearchParams({ sessionId }), controller.signal).then(data => {
+        fetchModelSummary(TEAM_MODELS_ROUTE, new URLSearchParams({ sessionId }), controller.signal).then(data => {
           if (controller.signal.aborted) return
           const model = data?.ok ? routeLabel(data.parentRoute) : ''
-          setResult(previous => ({ refreshKey, model: model || previous?.model || '', failed: !data?.ok }))
+          setResult(previous => ({ refreshKey, model: data?.ok ? model : previous?.model || '', failed: !data?.ok }))
         })
         return () => controller.abort()
       }, [sessionId, refreshKey])
@@ -997,6 +1029,7 @@ window.__ModuleLoader__.load({
     function useTeamMemberModels(sessionId, members, refreshKey) {
       const [snapshot, setSnapshot] = useState(() => ({ modelById: new Map(), key: null }))
       const known = useRef(new Map())
+      const failures = useRef(new Set())
       // Track completed lookups per refresh so catalog changes can resume an interrupted refresh.
       const lastRefresh = useRef(new Map())
       const key = JSON.stringify([refreshKey, members.filter(row => row.mode !== 'external').map(row => row.id)])
@@ -1005,7 +1038,6 @@ window.__ModuleLoader__.load({
         const [, ids] = JSON.parse(key)
         let timer
         let attempts = 0
-        let failed = false
         async function poll(requestedIds) {
           const waiting = []
           for (let index = 0; index < requestedIds.length; index += 20) {
@@ -1017,13 +1049,15 @@ window.__ModuleLoader__.load({
             if (refreshKey > 0) {
               for (const id of batch) lastRefresh.current.set(id, refreshKey)
             }
-            if (data?.ok && data.enabled === false) { waiting.length = 0; break }
+            if (data?.ok && data.enabled === false) { failures.current.clear(); waiting.length = 0; break }
             const result = teamMemberBatch(batch, data, known.current)
-            failed ||= result.failed
+            for (const id of batch) failures.current.delete(id)
+            for (const id of result.failed) failures.current.add(id)
             for (const member of result.confirmed) known.current.set(member.id, member.route)
             waiting.push(...result.waiting)
           }
           const pending = waiting.length > 0 && ++attempts < 8
+          const failed = new Set(ids.filter(id => failures.current.has(id)))
           setSnapshot({ key, waiting: new Set(pending ? waiting : []), failed, modelById: new Map(known.current) })
           if (pending) timer = setTimeout(() => { void poll(waiting) }, 1200)
         }
@@ -1031,7 +1065,7 @@ window.__ModuleLoader__.load({
         return () => { controller.abort(); clearTimeout(timer) }
       }, [sessionId, key, refreshKey])
       const checked = snapshot.key === key
-      return { modelById: snapshot.modelById, checked, waiting: checked ? snapshot.waiting : null, failed: checked && snapshot.failed }
+      return { modelById: snapshot.modelById, checked, waiting: checked ? snapshot.waiting : null, failed: checked ? snapshot.failed : null }
     }
     function useTeamNoticePreference(scope, t) {
       const snapshot = useSource(scope)
@@ -1075,7 +1109,7 @@ window.__ModuleLoader__.load({
       const parent = useTeamParentModel(sessionId, refreshKey)
       const { modelById, checked, waiting, failed } = useTeamMemberModels(sessionId, members, refreshKey)
       const refreshing = refreshKey > 0 && (parent.pending || !checked)
-      const loadFailed = parent.failed || failed
+      const loadFailed = parent.failed || failed?.size > 0
 
       const id = useId()
       const card = useRef(null)
@@ -1122,9 +1156,10 @@ window.__ModuleLoader__.load({
           members.map(member => {
             const model = routeLabel(modelById.get(member.id))
             const pending = member.mode !== 'external' && (!waiting || waiting.has(member.id))
-            if (!model && !pending) return null
+            const unavailable = failed?.has(member.id)
+            if (!model && !pending && !unavailable) return null
             return row(member.name || member.label || member.id.replace(/^session-/, '').slice(0, 8),
-              model || t('teamNoticeWaiting'), member.id)
+              model || t(unavailable ? 'teamNoticeUnavailable' : 'teamNoticeWaiting'), member.id)
           })),
         h('div', { style: S.row },
           openSettings ? h(Button, { primary: true, onClick: () => {

@@ -162,8 +162,9 @@ export async function apply(ctx, config) {
     await editor.edit(entry, raw => {
       const resolved = snapshotSettings({ ...current(), ...raw })
       const next = updateSettings(resolved, request, id)
-      return { ...raw, routingEnabled: next.routingEnabled, defaultProvider: next.defaultProvider,
-        defaultModel: next.defaultModel, sessionDefaults: next.sessionDefaults }
+      if (request.scope === 'session') return { ...raw, sessionDefaults: next.sessionDefaults }
+      if (request.mode === 'parent') return { ...raw, routingEnabled: false }
+      return { ...raw, routingEnabled: true, defaultProvider: next.defaultProvider, defaultModel: next.defaultModel }
     })
     return { ok: true, ...status(agent, id) }
   }

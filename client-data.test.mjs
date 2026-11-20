@@ -6,7 +6,7 @@ import vm from 'node:vm'
 // Evaluate only the pure data block. No module loader, React, browser, or DOM is simulated.
 const source = readFileSync(new URL('./client.js', import.meta.url), 'utf8')
 const pure = source.split('// BEGIN PURE HELPERS')[1].split('// END PURE HELPERS')[0]
-const helpers = vm.runInNewContext(`(() => { ${pure}; return { routeKey, routeFromKey, sessionRows, defaultValue, sessionValue, replaceSession, beginEdit, isDirty, acceptedWrite, observeTeam, teamNotifications, teamMemberLookupIds, teamMemberBatch } })()`)
+const helpers = vm.runInNewContext(`(() => { ${pure}; return { routeKey, routeFromKey, sessionRows, defaultValue, sessionValue, replaceSession, beginEdit, isDirty, GLOBAL_GROUPS, rebaseDraft, draftOverlaps, globalOps, acceptedWrite, observeTeam, teamNotifications, teamMemberLookupIds, teamMemberBatch } })()`)
 const plain = value => JSON.parse(JSON.stringify(value))
 
 test('client session rows use id, keep titles/current status and filter subagents', () => {
@@ -73,14 +73,15 @@ test('refresh distinguishes a failed member batch from models still awaiting con
   const previousRoute = { provider: 'p', model: 'previous' }
   const newRoute = { provider: 'p', model: 'new' }
   const known = new Map([['cached', previousRoute]])
-  const ids = ['cached', 'pending', 'confirmed']
+  const ids = ['cached', 'pending', 'confirmed', 'failed']
   assert.deepEqual(plain(helpers.teamMemberBatch(ids, null, known)), {
-    failed: true, waiting: [], confirmed: [],
+    failed: ids, waiting: [], confirmed: [],
   })
   assert.deepEqual(plain(helpers.teamMemberBatch(ids, { ok: true, members: [
-    { id: 'cached', route: null }, { id: 'confirmed', route: newRoute }, { id: 'unrequested', route: newRoute },
+    { id: 'cached', route: null, failed: true }, { id: 'confirmed', route: newRoute },
+    { id: 'failed', route: null, failed: true }, { id: 'unrequested', route: newRoute },
   ] }, known)), {
-    failed: false, waiting: ['pending'], confirmed: [{ id: 'confirmed', route: newRoute }],
+    failed: ['cached', 'failed'], waiting: ['pending'], confirmed: [{ id: 'confirmed', route: newRoute }],
   })
   assert.deepEqual(plain(helpers.teamMemberBatch(ids, { ok: true, members: [{ id: 'cached', route: newRoute }] }, known).confirmed),
     [{ id: 'cached', route: newRoute }])
@@ -116,6 +117,33 @@ test('editing keeps initial revision and baseline when the Host changes mid-draf
   assert.deepEqual(plain(next.baseline), { model: 'old' })
   assert.equal(helpers.isDirty(next), true)
 })
+test('rebasing a global toggle preserves and does not submit a concurrently changed model', () => {
+  const before = { routingEnabled: true, defaultProvider: 'p', defaultModel: 'old' }
+  const current = { ...before, defaultModel: 'external' }
+  const edit = helpers.beginEdit(null, before, 1, { ...before, routingEnabled: false })
+  assert.equal(helpers.draftOverlaps(edit, current, helpers.GLOBAL_GROUPS), false)
+  const rebased = helpers.rebaseDraft(edit, current, 2, helpers.GLOBAL_GROUPS)
+  assert.equal(rebased.revision, 2)
+  assert.equal(rebased.value.defaultModel, 'external')
+  assert.deepEqual(plain(helpers.globalOps(rebased.baseline, rebased.value)), [
+    { op: 'set', path: ['routingEnabled'], value: false },
+  ])
+})
+
+test('rebasing competing model changes keeps the explicitly chosen route as a pair', () => {
+  const before = { routingEnabled: true, defaultProvider: 'p', defaultModel: 'old' }
+  const draft = { ...before, defaultModel: 'draft' }
+  const current = { ...before, defaultProvider: 'other', defaultModel: 'external' }
+  const edit = helpers.beginEdit(null, before, 1, draft)
+  assert.equal(helpers.draftOverlaps(edit, current, helpers.GLOBAL_GROUPS), true)
+  const rebased = helpers.rebaseDraft(edit, current, 2, helpers.GLOBAL_GROUPS)
+  assert.deepEqual(plain(helpers.globalOps(rebased.baseline, rebased.value)), [
+    { op: 'set', path: ['defaultProvider'], value: 'p' },
+    { op: 'set', path: ['defaultModel'], value: 'draft' },
+  ])
+  assert.equal(helpers.rebaseDraft(edit, draft, 2, helpers.GLOBAL_GROUPS), null)
+})
+
 test('a toggle returned to baseline is not dirty; false mutation is never accepted', () => {
   assert.equal(helpers.isDirty(helpers.beginEdit(null, false, 1, false)), false)
   assert.equal(helpers.isDirty(helpers.beginEdit(null, false, 1, true)), true)

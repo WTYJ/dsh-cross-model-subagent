@@ -91,7 +91,7 @@ test('an explicit re-check bypasses the cache', async () => {
   assert.equal(impl.calls.length, 4, 'forcing costs a fresh lookup')
 })
 
-test('a stale cache or a different local version is ignored', async () => {
+test('an expired cache is ignored and fresh remote metadata is compared with the current version', async () => {
   const impl = countingFetch('0.2.0')
   const first = await checkForUpdate({ currentVersion: '0.1.0', installedSource: gitInstall, fetchImpl: impl })
   const stale = await checkForUpdate({
@@ -102,10 +102,47 @@ test('a stale cache or a different local version is ignored', async () => {
   assert.equal(impl.calls.length, 4)
 
   const otherVersion = await checkForUpdate({
-    currentVersion: '0.0.9', installedSource: gitInstall, fetchImpl: impl,
+    currentVersion: '0.2.0', installedSource: gitInstall, fetchImpl: impl,
     cache: { at: Date.now(), payload: first },
   })
-  assert.equal(otherVersion.cached, undefined, 'a cache for another local version is not reused')
+  assert.equal(otherVersion.cached, true)
+  assert.equal(otherVersion.status, 'up-to-date')
+  assert.equal(otherVersion.spec, null)
+  assert.equal(impl.calls.length, 4)
+})
+
+test('fresh remote metadata does not reuse eligibility from a different installation source', async () => {
+  const impl = countingFetch('0.2.0')
+  const bundle = { name: 'dsh-cross-model-subagent', version: '0.1.0', source: GOOD_SPEC, update: 'git' }
+  const manager = { listBundles: async () => [bundle] }
+  const first = await updateStatus(manager, [bundle.name], { fetchImpl: impl })
+  assert.equal(first.canSelfUpdate, true)
+
+  bundle.source = `github:example/other#${SHA}`
+  const second = await updateStatus(manager, [bundle.name], { fetchImpl: impl, cache: { at: Date.now(), payload: first } })
+  assert.equal(second.cached, true)
+  assert.equal(second.installedSource.origin, 'github.com/example/other')
+  assert.equal(second.canSelfUpdate, false)
+  assert.equal(second.spec, null)
+
+  bundle.source = 'github:WTYJ/dsh-cross-model-subagent'
+  delete bundle.update
+  const unpinned = await updateStatus(manager, [bundle.name], { fetchImpl: impl, cache: { at: Date.now(), payload: first } })
+  assert.equal(unpinned.canSelfUpdate, false)
+  assert.match(unpinned.reason, /DSH does not offer Git self-update/)
+  assert.equal(impl.calls.length, 2)
+})
+
+test('install validation does not fetch when the cached check is expired', async () => {
+  const impl = countingFetch('0.2.0')
+  const first = await checkForUpdate({ currentVersion: '0.1.0', installedSource: gitInstall, fetchImpl: impl })
+  const result = await checkForUpdate({
+    currentVersion: '0.1.0', installedSource: gitInstall, fetchImpl: impl, cacheOnly: true,
+    cache: { at: Date.now() - CACHE_TTL_MS - 1000, payload: first },
+  })
+  assert.equal(result.status, 'error')
+  assert.equal(result.spec, null)
+  assert.equal(impl.calls.length, 2)
 })
 
 test('updateStatus marks the cacheable result and hides it from the page payload', async () => {

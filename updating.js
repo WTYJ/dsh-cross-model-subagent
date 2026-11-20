@@ -185,15 +185,18 @@ function rateLimitReason(wait, subject = 'the request') {
     : `${head} Try again in about ${Math.ceil(wait / 60)} minutes.`
 }
 
-/** Read the last successful result's copy, when one is still fresh. */
-function cachedResult(cache, currentVersion) {
+/** Reuse remote release metadata while always comparing against the current installation. */
+function cachedResult(cache, currentVersion, installed, result) {
   if (!cache || typeof cache !== 'object') return undefined
   const { at, payload } = cache
-  if (!Number.isFinite(at) || !payload || typeof payload !== 'object') return undefined
-  if (Date.now() - at > CACHE_TTL_MS) return undefined
-  // A cached answer for a different local version would compare against the wrong side.
-  if (payload.currentVersion !== currentVersion) return undefined
-  return { ...payload, cached: true, checkedAt: new Date(at).toISOString() }
+  if (!Number.isFinite(at) || Date.now() - at > CACHE_TTL_MS || !payload) return undefined
+  const { latestVersion, latestCommit, publishedAt, notes, fetchAttempts } = payload
+  if (typeof latestVersion !== 'string' || !/^[0-9a-f]{40}$/.test(latestCommit ?? '')) return undefined
+  Object.assign(result, {
+    latestVersion, latestCommit, publishedAt, notes, fetchAttempts: fetchAttempts ?? [],
+    cached: true, cacheable: true, checkedAt: new Date(at).toISOString(),
+  })
+  return finish(currentVersion, latestVersion, latestCommit, installed, result)
 }
 
 /** Check the public repository for a newer release. Never throws for network
@@ -204,12 +207,8 @@ function cachedResult(cache, currentVersion) {
  * @param options.force skip the cache (an explicit "check again").
  * @returns the same result shape as before, plus `cacheable` when it may be stored.
  */
-export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion, installedSource, timeoutMs = 8000, cache, force = false, readGit } = {}) {
+export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion, installedSource, timeoutMs = 8000, cache, force = false, cacheOnly = false, readGit } = {}) {
   const installed = normalizeInstalled(installedSource)
-  if (!force) {
-    const reused = cachedResult(cache, currentVersion)
-    if (reused !== undefined) return reused
-  }
   const fetchAttempts = []
   const result = {
     status: 'error',
@@ -224,6 +223,16 @@ export async function checkForUpdate({ fetchImpl = fetch, signal, currentVersion
     spec: null,
     fetchAttempts,
     checkedAt: new Date().toISOString(),
+  }
+
+  if (!force) {
+    const reused = cachedResult(cache, currentVersion, installed, result)
+    if (reused) return reused
+  }
+
+  if (cacheOnly) {
+    result.reason = 'Check for updates again before installing.'
+    return result
   }
 
   const timeout = AbortSignal.timeout(timeoutMs)

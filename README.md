@@ -48,7 +48,7 @@ dsh plugin add https://github.com/WTYJ/dsh-cross-model-subagent.git
 
 GitHub Contents API 和备用 CDN 都按检查到的完整提交读取版本号。点「重新检查」跳过缓存，旁边的「查看 GitHub 更新日志」打开对应版本的 Release 页面。
 
-成功结果在 Host 侧缓存 10 分钟。GitHub REST API 限流时，Host 会通过 Git 获取默认分支的最新提交，并从该提交读取插件版本。如果 Git 也无法连接，页面会显示检查失败和可用的重试信息。
+Host 缓存远端版本与提交 10 分钟，并按当前安装来源和版本重新判断是否可更新。安装前会核对检查结果中的版本和提交，检查结果过期后需要重新检查。GitHub REST API 限流时，Host 会通过 Git 获取默认分支的最新提交，并从该提交读取插件版本。如果 Git 也无法连接，页面会显示检查失败和可用的重试信息。
 
 更新区按“当前正在运行的那份副本”检查：Profile 里仍记录旧包名（例如早期的 `@local/dsh-cross-model-subagent`）时也会被识别，不会误报为未安装。
 

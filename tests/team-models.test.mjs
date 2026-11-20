@@ -46,6 +46,29 @@ test('team lookup reads confirmed children and keeps unknown external model blan
   assert.equal(await readTeamModels(ctx, 'root', Array(21).fill('live'), signal), null)
 })
 
+test('team summary keeps the last requested parent model and distinguishes member read errors', async () => {
+  const last = model('root', 'last-request')
+  const root = {
+    session: session([member('failed'), member('pending'), request(last)]),
+    model: { current: () => model('root', 'selected-next') },
+  }
+  const services = {
+    agentTeams: { isEnabled: () => true },
+    sessionQuery: { async inspectSession(id, read) {
+      if (id === 'failed') throw new Error('Storage read failed')
+      return read(session([], 'subagent'))
+    } },
+  }
+  const ctx = { agents: new Map([['root', root]]), get: name => services[name] }
+  const signal = new AbortController().signal
+  assert.deepEqual(await readTeamModels(ctx, 'root', [], signal), {
+    enabled: true, parentRoute: last, members: [],
+  })
+  assert.deepEqual((await readTeamModels(ctx, 'root', ['failed', 'pending'], signal)).members, [
+    { id: 'failed', route: null, failed: true }, { id: 'pending', route: null },
+  ])
+})
+
 test('summary accepts Desktop forwarding with an authenticated owner and no Origin', async () => {
   const origin = 'http://127.0.0.1:12345'
   const host = new URL(origin).host
