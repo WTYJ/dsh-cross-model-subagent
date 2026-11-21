@@ -39,6 +39,7 @@ const output = {
 }
 
 function json(res, value, status = 200) {
+  if (res.destroyed || res.writableEnded) return
   const body = JSON.stringify(value)
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'content-length': Buffer.byteLength(body) })
   res.end(body)
@@ -48,13 +49,20 @@ function json(res, value, status = 200) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let size = 0
+    let failed = false
     const chunks = []
     req.on('data', chunk => {
+      if (failed) return
       size += chunk.length
-      if (size > MAX_BODY) { reject(new Error('Request body is too large.')); req.destroy(); return }
+      if (size > MAX_BODY) {
+        failed = true
+        req.resume()
+        reject(new Error('Request body is too large.'))
+        return
+      }
       chunks.push(chunk)
     })
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+    req.on('end', () => { if (!failed) resolve(Buffer.concat(chunks).toString('utf8')) })
     req.on('error', reject)
   })
 }

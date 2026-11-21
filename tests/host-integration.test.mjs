@@ -120,11 +120,19 @@ test('host composes official native subagent with live defaults and owned scope'
   await ctx.serial('agent/created', { agent: custom, source: 'resume' })
   assert.equal(ctx.tools.get('subagent', custom), f.original, 'unrecognized presets keep their own backend and tool configuration')
 
+  const statusTool = ctx.tools.get('cross_model_subagent_status', existing)
   const configure = ctx.tools.get('cross_model_subagent_configure', existing)
   const exec = { agent: existing, signal: new AbortController().signal }
+  assert.equal((await statusTool.execute({ sessionId: '   ' }, exec)).sessionId, 'existing')
+  assert.equal((await statusTool.execute({}, { signal: exec.signal })).sessionId, null)
+  assert.match((await configure.execute({ scope: 'global', mode: 'inherit' }, { signal: exec.signal })).error, /Global mode/)
+  assert.match((await configure.execute({ scope: 'session', mode: 'parent', sessionId: '   ' }, { signal: exec.signal })).error, /No target session/)
+  assert.match((await configure.execute({ scope: 'session', mode: 'parent', sessionId: 'child' }, exec)).error, /root sessions, not subagents/)
   assert.match((await configure.execute({ scope: 'session', mode: 'route', provider: 'missing', model: 'A' }, exec)).error, /unavailable/)
   assert.match((await configure.execute({ scope: 'session', mode: 'route', provider: 'ds', model: 'missing' }, exec)).error, /not advertised/)
   assert.match((await configure.execute({ scope: 'session', mode: 'route', provider: 'ds', model: 'A' }, exec)).error, /not editable/)
+
+  await ctx.serial('agent/disposed', { agent: fresh })
 
   toolSet.dispose()
   await owner.dispose()
@@ -295,4 +303,12 @@ test('apply requires a checked version and commit that remain eligible', async (
   u.bundles[0].source = 'github:example/other#' + 'd'.repeat(40)
   assert.equal((await apply('0.0.2', PINNED)).body.ok, false)
   assert.equal(u.installs.length, 0)
+})
+
+test('oversized update request body returns HTTP 400 JSON without crashing', async () => {
+  const u = mountUpdate()
+  const r = await u.call({ body: { action: 'check', padding: 'x'.repeat(9000) } })
+  assert.equal(r.status, 400)
+  assert.equal(r.body.ok, false)
+  assert.match(r.body.message, /too large/)
 })

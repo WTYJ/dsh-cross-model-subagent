@@ -459,16 +459,17 @@ window.__ModuleLoader__.load({
       const selected = routeKey(value)
       const known = catalog.groups.some(g => (g.models || []).some(m => routeKey({ provider: g.id, model: m.id }) === selected))
       const hasRoute = !!(value.provider || value.model)
+      const stale = hasRoute && catalog.loaded && !known
       return h(React.Fragment, null,
         h(Select, { label, value: hasRoute ? selected : '', disabled, onChange: key => onChange(routeFromKey(key)),
           invalid, describedBy, ref: selectRef },
           h(Option, { value: '', disabled: true }, t('choose')),
-          hasRoute && !known ? h(Option, { value: selected }, value.provider + '/' + value.model + ' · ' + t('stale')) : null,
+          hasRoute && !known ? h(Option, { value: selected }, value.provider + '/' + value.model + (stale ? ' · ' + t('stale') : '')) : null,
           catalog.groups.map(g => h('optgroup', { key: g.id, label: g.name || g.id }, (g.models || []).map(m =>
             h(Option, { key: routeKey({ provider: g.id, model: m.id }), value: routeKey({ provider: g.id, model: m.id }) },
               m.name + ' · ' + g.id + '/' + m.id)))),
         ),
-        hasRoute && !known ? h(Note, { icon: 'info' }, t('staleHint')) : null,
+        stale ? h(Note, { icon: 'info' }, t('staleHint')) : null,
         catalog.loading ? h(Note, { icon: 'info' }, t('modelsLoading')) : null,
         !catalog.loading && catalog.loaded && !catalog.groups.some(g => (g.models || []).length) ? h(Note, { icon: 'info' }, t('modelsEmpty')) : null,
       )
@@ -477,14 +478,15 @@ window.__ModuleLoader__.load({
       return catalog.groups.some(g => g.id === route.provider && (g.models || []).some(m => m.id === route.model))
     }
     // Option values use the full id; the visible label leads with the title and marks the current session.
-    function SessionPicker({ t, rows, value, disabled, onChange }) {
+    function SessionPicker({ t, rows, value, loading, disabled, onChange }) {
       const selected = rows.find(row => row.id === value)
+      const missing = !!(value && !selected && !loading)
       const titleCounts = new Map()
       for (const row of rows) titleCounts.set(row.title, (titleCounts.get(row.title) || 0) + 1)
       return h(React.Fragment, null,
         h(Select, { label: t('target'), value: value || '', disabled: disabled || !rows.length, onChange },
-          !value ? h(Option, { value: '' }, t('noSession')) : null,
-          value && !selected ? h(Option, { value }, value + ' · ' + t('stale')) : null,
+          !value ? h(Option, { value: '' }, t(loading ? 'sessionLoading' : 'noSession')) : null,
+          value && !selected ? h(Option, { value }, value + (missing ? ' · ' + t('stale') : '')) : null,
           rows.map(row => {
             const shortId = row.id.replace(/^session-/, '').slice(0, 8)
             const title = titleCounts.get(row.title) > 1 ? shortId + ' · ' + row.title : row.title
@@ -492,7 +494,7 @@ window.__ModuleLoader__.load({
           }),
         ),
         h(SelectedSessionDetails, { t, id: value, title: selected?.title }),
-        value && !selected ? h(Note, { error: true, icon: 'info' }, t('missingSession')) : null,
+        missing ? h(Note, { error: true, icon: 'info' }, t('missingSession')) : null,
       )
     }
     // Shows the selected id in a small, secondary collapsible area so same-titled sessions are not confused.
@@ -754,7 +756,8 @@ window.__ModuleLoader__.load({
       const checkFailed = state.phase === 'error' || status === 'error'
       const checkError = checkFailed ? state.error || data.reason || t('updateCheckFailed') : ''
       const migrate = state.phase === 'ok' && !data.localPreview && isLinkKind(data.installedSource)
-      const canInstall = state.phase === 'ok' && data.canSelfUpdate === true && data.status === 'ready' && typeof data.spec === 'string' && !!data.latestVersion
+      const restartPending = isApplySettled(outcome) && outcome.application === 'restart-required'
+      const canInstall = !restartPending && state.phase === 'ok' && data.canSelfUpdate === true && data.status === 'ready' && typeof data.spec === 'string' && !!data.latestVersion
       const installDisabled = installing || busyCheck
 
       const outcomeText = (() => {
@@ -856,6 +859,7 @@ window.__ModuleLoader__.load({
     // Two message kinds: transient success (auto-clears) and persistent warning (dirty/conflict/rebase stay).
     function useEditor(scope, snap, readValue, setBusy, t, groups) {
       const [edit, setEdit] = useState(null)
+      const [invalid, setInvalid] = useState(false)
       const [saving, setSaving] = useState(false)
       const [message, setMessage] = useState('')
       const [warning, setWarning] = useState('')
@@ -878,12 +882,14 @@ window.__ModuleLoader__.load({
       const dirty = isDirty(edit)
       const change = next => {
         setEdit(previous => beginEdit(previous, current, snap.revision, next))
-        setMessage(''); setWarning(''); setError('')
+        setInvalid(false); setMessage(''); setWarning(''); setError('')
       }
-      const discard = () => { clearTimer(); setEdit(null); setMessage(''); setWarning(''); setError('') }
+      const discard = useCallback(() => {
+        clearTimer(); setEdit(null); setInvalid(false); setMessage(''); setWarning(''); setError('')
+      }, [])
       const save = async ops => {
         if (!dirty || lock.current || !edit || edit.revision === undefined || edit.revision !== snap.revision) return
-        lock.current = true; setSaving(true); setBusy(true); setError(''); setMessage(''); setWarning('')
+        lock.current = true; setSaving(true); setBusy(true); setInvalid(false); setError(''); setMessage(''); setWarning('')
         try {
           if (!acceptedWrite(await scope.mutate(ops, edit.revision))) { setError(t('refused')); return }
           setEdit(null); showSuccess(t('saved'))
@@ -894,10 +900,11 @@ window.__ModuleLoader__.load({
       const overlap = conflict && draftOverlaps(edit, current, groups)
       const rebase = () => {
         setEdit(previous => previous && rebaseDraft(previous, current, snap.revision, groups))
+        setInvalid(false)
         setError('')
         setWarning(t('rebased'))
       }
-      return { value, baseline: edit?.baseline, dirty, saving, change, discard, save, conflict, overlap, rebase, message, warning, error, setError }
+      return { value, baseline: edit?.baseline, dirty, invalid, setInvalid, saving, change, discard, save, conflict, overlap, rebase, message, warning, error, setError }
     }
     // Footer inside the editor's <form>; the primary Save is type=submit, helpers are type=button.
     // Only dynamic results (success/error/warning) are announced; the static dirty hint is inert.
@@ -920,30 +927,28 @@ window.__ModuleLoader__.load({
     function GlobalSection({ scope, snap, t, catalog, blocked, setBusy }) {
       const editor = useEditor(scope, snap, defaultValue, setBusy, t, GLOBAL_GROUPS)
       const value = editor.value
-      const [invalid, setInvalid] = useState(false)
       const modelRef = useRef(null)
       const modelHelpId = useId()
       const titleId = useId()
       const submit = () => {
         if (blocked) return
         if (value.routingEnabled && !containsRoute(catalog, { provider: value.defaultProvider, model: value.defaultModel })) {
-          editor.setError(t('needModel'))
-          setInvalid(true)
+          editor.setInvalid(true)
           if (modelRef.current && typeof modelRef.current.focus === 'function') modelRef.current.focus()
           return
         }
         if (editor.dirty) void editor.save(globalOps(editor.baseline, value))
       }
-      const changeRoute = route => { setInvalid(false); editor.change(Object.assign({}, value, { defaultProvider: route.provider, defaultModel: route.model })) }
+      const changeRoute = route => { editor.change(Object.assign({}, value, { defaultProvider: route.provider, defaultModel: route.model })) }
       return h(Card, { title: t('globalTitle'), titleId, hint: t('globalHint'), icon: 'model', headingLevel: 'h3' },
         h('form', { className: 'cms-stack', 'aria-labelledby': titleId, onSubmit: e => { e.preventDefault(); submit() }, noValidate: true },
           h(Toggle, { label: t('enable'), checked: value.routingEnabled, disabled: blocked,
-            onChange: enabled => { setInvalid(false); editor.change(Object.assign({}, value, { routingEnabled: enabled })) } }),
+            onChange: enabled => { editor.change(Object.assign({}, value, { routingEnabled: enabled })) } }),
           value.routingEnabled
             ? h(ModelPicker, { t, catalog, label: t('model'), value: { provider: value.defaultProvider, model: value.defaultModel }, disabled: blocked,
-              onChange: changeRoute, invalid, describedBy: modelHelpId, selectRef: modelRef })
+              onChange: changeRoute, invalid: editor.invalid, describedBy: modelHelpId, selectRef: modelRef })
             : h('p', { style: S.hint }, t('off')),
-          h('span', { id: modelHelpId, className: 'cms-field-error', hidden: !invalid }, invalid ? t('needModel') : ''),
+          h('span', { id: modelHelpId, role: 'status', className: 'cms-field-error', hidden: !editor.invalid }, editor.invalid ? t('needModel') : ''),
           h(EditorFooter, { editor, t, disabled: blocked }),
         ),
       )
@@ -1119,8 +1124,10 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         const element = card.current
         focusBefore.current = document.activeElement
-        if (typeof element.showPopover === 'function') element.showPopover()
-        return () => { if (typeof element.hidePopover === 'function') element.hidePopover() }
+        try { if (typeof element?.showPopover === 'function') element.showPopover() } catch {}
+        return () => {
+          try { if (element?.matches?.(':popover-open') && typeof element.hidePopover === 'function') element.hidePopover() } catch {}
+        }
       }, [])
       const dismiss = () => {
         if (card.current?.contains(document.activeElement) && focusBefore.current?.isConnected) {
@@ -1196,25 +1203,24 @@ window.__ModuleLoader__.load({
       const [chosen, setChosen] = useState(() => requestedSession?.sessionId ?? '')
       const activeId = chosen || (rows.find(row => row.current) || rows[0] || {}).id || ''
       const editor = useEditor(scope, snap, value => sessionValue(value, activeId), setBusy, t)
+      const { dirty, discard } = editor
       const value = editor.value
       const present = rows.some(row => row.id === activeId)
-      const [invalid, setInvalid] = useState(false)
       const modelRef = useRef(null)
       const modeHelpId = useId()
       const modelErrId = useId()
       const titleId = useId()
       useEffect(() => {
-        if (!requestedSession || editor.dirty) return
+        if (!requestedSession || dirty) return
         setChosen(requestedSession.sessionId)
-        setInvalid(false)
+        discard()
         navigation.consume(requestedSession)
-      }, [requestedSession, editor.dirty, navigation])
-      const change = next => { setChosen(activeId); setInvalid(false); editor.change(next) }
+      }, [requestedSession, dirty, discard, navigation])
+      const change = next => { setChosen(activeId); editor.change(next) }
       const submit = () => {
         if (blocked || !present) return
         if (value.mode === 'route' && !containsRoute(catalog, value)) {
-          editor.setError(t('needModel'))
-          setInvalid(true)
+          editor.setInvalid(true)
           if (modelRef.current && typeof modelRef.current.focus === 'function') modelRef.current.focus()
           return
         }
@@ -1224,10 +1230,11 @@ window.__ModuleLoader__.load({
       const global = defaultValue(snap.value || {})
       const behavior = saved.mode === 'route' ? saved.provider + '/' + saved.model
         : saved.mode === 'parent' || !global.routingEnabled ? t('parent') : global.defaultProvider + '/' + global.defaultModel
+      const sessionEditor = present ? editor : { ...editor, discard: () => { discard(); setChosen('') } }
       return h(Card, { title: t('sessionTitle'), titleId, hint: t('sessionHint'), icon: 'session', headingLevel: 'h3' },
         sessionsLoading ? h(Note, { icon: 'info' }, t('sessionLoading')) : null,
-        !rows.length && !activeId ? h(Note, { icon: 'info' }, t('noSession')) : null,
-        h(SessionPicker, { t, rows, value: activeId, disabled: blocked || editor.dirty, onChange: id => { setChosen(id); editor.discard(); setInvalid(false) } }),
+        !sessionsLoading && !rows.length && !activeId ? h(Note, { icon: 'info' }, t('noSession')) : null,
+        h(SessionPicker, { t, rows, value: activeId, loading: sessionsLoading, disabled: blocked || editor.dirty, onChange: id => { setChosen(id); editor.discard() } }),
         editor.dirty ? h('p', { style: S.hint }, t('switchProtected')) : null,
         activeId ? h('form', { className: 'cms-stack', 'aria-labelledby': titleId, onSubmit: e => { e.preventDefault(); submit() }, noValidate: true },
           h('p', { style: S.effective }, t('effective'), h('strong', { className: 'cms-saved' }, behavior)),
@@ -1235,9 +1242,9 @@ window.__ModuleLoader__.load({
           h(ModeRadio, { t, value: value.mode, disabled: blocked || !present, onChange: mode => change({ mode, provider: mode === 'route' ? value.provider : '', model: mode === 'route' ? value.model : '' }), describedBy: modeHelpId }),
           h('span', { id: modeHelpId, style: { display: 'none' } }, t('modeHelp')),
           value.mode === 'route' ? h(ModelPicker, { t, catalog, label: t('sessionModel'), value, disabled: blocked || !present,
-            onChange: route => { setInvalid(false); change(Object.assign({}, route, { mode: 'route' })) }, invalid, describedBy: modelErrId, selectRef: modelRef }) : null,
-          h('span', { id: modelErrId, className: 'cms-field-error', hidden: !invalid }, invalid ? t('needModel') : ''),
-          h(EditorFooter, { editor, t, disabled: blocked || !present }),
+            onChange: route => { change(Object.assign({}, route, { mode: 'route' })) }, invalid: editor.invalid, describedBy: modelErrId, selectRef: modelRef }) : null,
+          h('span', { id: modelErrId, role: 'status', className: 'cms-field-error', hidden: !editor.invalid }, editor.invalid ? t('needModel') : ''),
+          h(EditorFooter, { editor: sessionEditor, t, disabled: blocked || !present }),
         ) : null,
       )
     }

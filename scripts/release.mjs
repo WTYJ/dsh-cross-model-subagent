@@ -39,8 +39,22 @@ export function readManifest() {
 }
 
 function verify() {
-  run(process.execPath, ['--check', path.join(root, 'client.js')])
-  run(process.execPath, ['--test', 'tests/routing.test.mjs', 'tests/host-integration.test.mjs', 'tests/updating.test.mjs', 'client-data.test.mjs'])
+  for (const file of ['client.js', 'index.js', 'installed.js', 'routing.js', 'status-web.js', 'updating.js', 'git-update.js', 'updating-host.js', 'updating-entry.js']) {
+    run(process.execPath, ['--check', path.join(root, file)])
+  }
+  run(process.execPath, [
+    '--test',
+    'tests/routing.test.mjs',
+    'tests/catalog-validation.test.mjs',
+    'tests/host-integration.test.mjs',
+    'tests/host-update.test.mjs',
+    'tests/team-models.test.mjs',
+    'tests/update-cache.test.mjs',
+    'tests/update-status.test.mjs',
+    'tests/updating.test.mjs',
+    'client-copy.test.mjs',
+    'client-data.test.mjs',
+  ])
 }
 
 function main(argv) {

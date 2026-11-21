@@ -46,9 +46,10 @@ export function updateSettings(current, request, sessionId) {
   } else if (request.scope === 'session') {
     if (typeof sessionId !== 'string' || !sessionId.trim()) throw new Error('No target session.')
     if (!Array.isArray(current.sessionDefaults)) throw new Error('sessionDefaults must be an array.')
-    next.sessionDefaults = current.sessionDefaults.filter(row => row?.sessionId !== sessionId)
-    if (request.mode === 'route') next.sessionDefaults.push({ sessionId, mode: 'route', ...checkedRoute(request.provider, request.model) })
-    else if (request.mode === 'parent') next.sessionDefaults.push({ sessionId, mode: 'parent', provider: '', model: '' })
+    const targetId = sessionId.trim()
+    next.sessionDefaults = current.sessionDefaults.filter(row => row?.sessionId !== targetId)
+    if (request.mode === 'route') next.sessionDefaults.push({ sessionId: targetId, mode: 'route', ...checkedRoute(request.provider, request.model) })
+    else if (request.mode === 'parent') next.sessionDefaults.push({ sessionId: targetId, mode: 'parent', provider: '', model: '' })
     else if (request.mode !== 'inherit') throw new Error('Session mode must be route, parent or inherit.')
   } else throw new Error('Scope must be global or session.')
   return next

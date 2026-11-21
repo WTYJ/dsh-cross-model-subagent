@@ -58,7 +58,7 @@ export async function apply(ctx, config) {
     const preset = ctx.get('agentPresets')?.composedPreset(agent.ctx) ?? agent.session.header.agentPreset
     if (preset && !['standard', 'ptc', 'cordis'].includes(preset)) return
     if (original.parameters?.properties?.agent_preset) return
-    const state = { fiber: null, ready: false, error: null }
+    const state = { fiber: null, ready: false, error: null, release: null }
     mounts.set(agent, state)
     const defaults = {
       provider: 'spawn', toolName: 'subagent', modelSelection: true, modelDiscovery: false,
@@ -78,12 +78,19 @@ export async function apply(ctx, config) {
     state.fiber = fiber
     // Both owners matter: closing the Agent OR disabling this plugin removes
     // the scoped native tool. Keep the exact Fiber disposer for ordered unwind.
-    ctx.effect(() => fiber.dispose, `worker-default:${agent.id}`)
+    state.release = ctx.effect(() => fiber.dispose, `worker-default:${agent.id}`)
     try {
       await fiber
+      if (mounts.get(agent) !== state) {
+        state.release?.()
+        await fiber.dispose()
+        return
+      }
       state.ready = true
     } catch (error) {
       state.error = error.message ?? String(error)
+      state.release?.()
+      state.release = null
       await fiber.dispose()
     }
   }
@@ -96,7 +103,11 @@ export async function apply(ctx, config) {
       await teams.setEnabled(agent, true, signal)
     }
   })
-  ctx.on('agent/disposed', ({ agent }) => { mounts.delete(agent) })
+  ctx.on('agent/disposed', ({ agent }) => {
+    const state = mounts.get(agent)
+    mounts.delete(agent)
+    state?.release?.()
+  })
   for (const agent of ctx.agents.list()) await mount(agent)
 
   ctx.systemPrompt.context({
@@ -117,11 +128,15 @@ export async function apply(ctx, config) {
     },
   })
 
-  function rootOf(agent) { return ctx.subagents.rootOf(agent) }
+  function rootOf(agent) { return agent ? ctx.subagents.rootOf(agent) : null }
+  function resolveSessionId(agent, suppliedId) {
+    const trimmed = typeof suppliedId === 'string' ? suppliedId.trim() : ''
+    return trimmed || rootOf(agent)?.id || null
+  }
   function status(agent, targetId) {
-    const root = agent ? rootOf(agent) : null
-    const id = targetId ?? root.id
-    const target = ctx.agents.get(id)
+    const root = rootOf(agent)
+    const id = resolveSessionId(agent, targetId)
+    const target = id ? ctx.agents.get(id) : null
     const settings = current()
     let selection = null, configurationError = null
     try { selection = resolveDefault(settings, id) } catch (error) { configurationError = error.message }
@@ -151,9 +166,12 @@ export async function apply(ctx, config) {
   }
 
   async function configure(agent, request, signal) {
-    const root = rootOf(agent)
-    const id = request.sessionId ?? root.id
+    const id = resolveSessionId(agent, request.sessionId)
+    if (request.scope === 'session' && id && ctx.agents.get(id)?.session.header.origin === 'subagent') {
+      throw new Error('Session worker defaults apply only to root sessions, not subagents.')
+    }
     if (request.mode === 'route') await validateCatalogRoute(ctx.llm, checkedRoute(request.provider, request.model), signal)
+    updateSettings(current(), request, id)
     signal?.throwIfAborted()
     const editor = ctx.get('configEditor')
     const entry = ctx.fiber.entry

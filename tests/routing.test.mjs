@@ -4,12 +4,12 @@ import { snapshotSettings, resolveDefault, updateSettings } from '../routing.js'
 
 const base = () => ({ routingEnabled: false, defaultProvider: '', defaultModel: '', sessionDefaults: [], forceAgentTeams: false })
 test('session worker route works with global defaults disabled and can be changed or cleared', () => {
-  let settings = updateSettings(base(), { scope: 'session', mode: 'route', provider: 'p', model: 'ds' }, 'one')
+  let settings = updateSettings(base(), { scope: 'session', mode: 'route', provider: 'p', model: 'ds' }, '  one  ')
   assert.deepEqual(resolveDefault(settings, 'one'), { source: 'session', route: { provider: 'p', model: 'ds' } })
   assert.equal(resolveDefault(settings, 'two').route, null)
   settings = updateSettings(settings, { scope: 'session', mode: 'route', provider: 'p', model: 'glm' }, 'one')
   assert.equal(resolveDefault(settings, 'one').route.model, 'glm')
-  settings = updateSettings(settings, { scope: 'session', mode: 'inherit' }, 'one')
+  settings = updateSettings(settings, { scope: 'session', mode: 'inherit' }, ' one ')
   assert.equal(resolveDefault(settings, 'one').route, null)
 })
 test('parent override opts one session out of global worker defaults', () => {
